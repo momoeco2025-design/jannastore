@@ -661,8 +661,17 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
 
     let formattedSlug = prodSlug.trim();
     if (!formattedSlug) {
-      // Auto-generate a short, unique slug based on a random string
-      formattedSlug = 'p-' + Math.random().toString(36).substring(2, 10);
+      // Auto-generate a 4-digit number based on the number of products
+      const count = products.length + 1;
+      formattedSlug = String(count).padStart(4, '0');
+      
+      let tempSlug = formattedSlug;
+      let counter = count;
+      while(products.some(p => p.slug === tempSlug)) {
+        counter++;
+        tempSlug = String(counter).padStart(4, '0');
+      }
+      formattedSlug = tempSlug;
     } else {
       formattedSlug = formattedSlug.toLowerCase().replace(/[^a-z0-9-_\u0600-\u06FF]/g, '-').replace(/-+/g, '-');
     }
@@ -1700,6 +1709,21 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                       onChange={(e) => setProdSubtitle(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-right"
                     />
+                  </div>
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-xs font-bold text-slate-700 block">الرابط المخصص (اختياري)</label>
+                    <div className="flex rounded-xl overflow-hidden border border-slate-200 bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-500">
+                      <span className="bg-slate-200 text-slate-600 px-3 py-3 text-xs select-none font-bold" dir="ltr">/</span>
+                      <input
+                        type="text"
+                        value={prodSlug}
+                        onChange={(e) => setProdSlug(e.target.value)}
+                        placeholder="يتم التوليد تلقائياً إذا تُرك فارغاً"
+                        className="w-full px-3 py-3 bg-transparent text-xs focus:outline-none font-bold text-emerald-700 text-left"
+                        dir="ltr"
+                      />
+                    </div>
                   </div>
                 </div>
 
