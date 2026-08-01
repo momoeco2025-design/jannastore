@@ -146,12 +146,23 @@ interface DBStructure {
   defaultProductSlug?: string;
 }
 
+
+
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+
+const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf-8'));
+const firebaseApp = initializeApp(firebaseConfig);
+const firestore = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+const STORE_DOC_ID = "main_store";
+
 // Read database
-function readDB(): DBStructure {
+async function getDB(): Promise<DBStructure> {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, "utf-8");
-      const parsed = JSON.parse(data) as DBStructure;
+    const docRef = doc(firestore, 'store', STORE_DOC_ID);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const parsed = docSnap.data() as DBStructure;
       let updated = false;
       if (!parsed.wilayas) {
         parsed.wilayas = ALGERIAN_WILAYAS;
@@ -184,12 +195,12 @@ function readDB(): DBStructure {
         }
       });
       if (updated) {
-        writeDB(parsed);
+        await saveDB(parsed);
       }
       return parsed;
     }
   } catch (error) {
-    console.error("Error reading database file, using defaults:", error);
+    console.error("Error reading database from Firestore, using defaults:", error);
   }
   
   // Create default db
@@ -202,16 +213,17 @@ function readDB(): DBStructure {
     telegramSettings: defaultTelegramSettings,
     storeSettings: defaultStoreSettings
   };
-  writeDB(defaultDB);
+  await saveDB(defaultDB);
   return defaultDB;
 }
 
 // Write database
-function writeDB(data: DBStructure) {
+async function saveDB(data: DBStructure) {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    const docRef = doc(firestore, 'store', STORE_DOC_ID);
+    await setDoc(docRef, data);
   } catch (error) {
-    console.error("Error writing to database file:", error);
+    console.error("Error writing to Firestore:", error);
   }
 }
 
@@ -236,7 +248,7 @@ function escapeHTML(text: string): string {
 
 // Helper to send order notification to Telegram
 async function sendTelegramNotification(order: Order, productName: string, productPrice: number) {
-  const db = readDB();
+  const db = await getDB();
   const settings = db.telegramSettings || defaultTelegramSettings;
 
   if (!settings.enabled) {
@@ -304,8 +316,8 @@ ${escNotes}
 // API Endpoints
 
 // 1. Get Product Data (Fallback/first product or selected active default product)
-app.get("/api/product", (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/product", async (req: Request, res: Response) => {
+  const db = await getDB();
   const defaultSlug = db.defaultProductSlug;
   const activeProduct = (db.products && defaultSlug) 
     ? (db.products.find(p => p.slug === defaultSlug) || db.products[0] || db.product)
@@ -314,21 +326,21 @@ app.get("/api/product", (req: Request, res: Response) => {
 });
 
 // 2. Update Product Data (Admin only - Fallback/first product)
-app.post("/api/product", adminAuth, (req: Request, res: Response) => {
-  const db = readDB();
+app.post("/api/product", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
   db.product = req.body;
   if (db.products && db.products.length > 0) {
     db.products[0] = { ...db.products[0], ...req.body };
   } else {
     db.products = [{ ...req.body, id: "p1", slug: "hairstyler" }];
   }
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم تحديث محتوى صفحة الهبوط بنجاح!", product: db.products[0] });
 });
 
 // 2b. Get All Products List (Public or Admin)
-app.get("/api/products", (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/products", async (req: Request, res: Response) => {
+  const db = await getDB();
   const products = db.products || [db.product];
   const defaultSlug = db.defaultProductSlug || products[0]?.slug;
   const productsWithDefault = products.map(p => ({
@@ -339,25 +351,25 @@ app.get("/api/products", (req: Request, res: Response) => {
 });
 
 // New: Set default landing page for homepage
-app.post("/api/products/set-default", adminAuth, (req: Request, res: Response) => {
+app.post("/api/products/set-default", adminAuth, async (req: Request, res: Response) => {
   const { slug } = req.body;
   if (!slug) {
     return res.status(400).json({ error: "الرابط الفريد (Slug) مطلوب." });
   }
-  const db = readDB();
+  const db = await getDB();
   const products = db.products || [db.product];
   const exists = products.some(p => p.slug === slug);
   if (!exists && db.product.slug !== slug) {
     return res.status(404).json({ error: "المنتج غير موجود." });
   }
   db.defaultProductSlug = slug;
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم تعيين الصفحة كصفحة رئيسية بنجاح!", defaultProductSlug: slug });
 });
 
 // 2c. Get Product By Slug (Public)
-app.get("/api/products/:slug", (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/products/:slug", async (req: Request, res: Response) => {
+  const db = await getDB();
   const { slug } = req.params;
   const product = db.products?.find(p => p.slug === slug);
   if (!product) {
@@ -367,8 +379,8 @@ app.get("/api/products/:slug", (req: Request, res: Response) => {
 });
 
 // 2d. Create or Update Product (Admin only)
-app.post("/api/products/save", adminAuth, (req: Request, res: Response) => {
-  const db = readDB();
+app.post("/api/products/save", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
   const productData = req.body;
   if (!productData.title || !productData.slug) {
     return res.status(400).json({ error: "اسم المنتج والرابط الفريد (Slug) مطلوبان." });
@@ -414,13 +426,13 @@ app.post("/api/products/save", adminAuth, (req: Request, res: Response) => {
     db.product = db.products[0];
   }
 
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم حفظ المنتج وصفحة الهبوط بنجاح!", products: db.products });
 });
 
 // 2e. Delete Product (Admin only)
-app.delete("/api/products/:id", adminAuth, (req: Request, res: Response) => {
-  const db = readDB();
+app.delete("/api/products/:id", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
   const { id } = req.params;
 
   if (!db.products || db.products.length <= 1) {
@@ -436,19 +448,19 @@ app.delete("/api/products/:id", adminAuth, (req: Request, res: Response) => {
   // Update fallback product to be the new first product
   db.product = db.products[0];
 
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم حذف المنتج بنجاح!", products: db.products });
 });
 
 // 3. Create a New Order
-app.post("/api/orders", (req: Request, res: Response) => {
+app.post("/api/orders", async (req: Request, res: Response) => {
   const { customerName, phone, wilayaNum, wilayaName, commune, quantity, notes, totalPrice, shippingPrice, productSlug } = req.body;
   
   if (!customerName || !phone || !wilayaName || !commune || !quantity) {
     return res.status(400).json({ error: "جميع الحقول الأساسية مطلوبة لإتمام الطلب." });
   }
 
-  const db = readDB();
+  const db = await getDB();
   const productsList = db.products || [db.product];
   const orderProduct = productsList.find(p => p.slug === productSlug) || productsList[0] || db.product;
 
@@ -470,7 +482,7 @@ app.post("/api/orders", (req: Request, res: Response) => {
   };
 
   db.orders.unshift(newOrder); // Add to the beginning
-  writeDB(db);
+  await saveDB(db);
 
   // Send Telegram Notification in background
   sendTelegramNotification(newOrder, orderProduct.title, orderProduct.price).catch(err => {
@@ -481,13 +493,13 @@ app.post("/api/orders", (req: Request, res: Response) => {
 });
 
 // 4. Get All Orders (Admin only)
-app.get("/api/orders", adminAuth, (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/orders", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
   res.json(db.orders);
 });
 
 // 5. Update Order Status (Admin only)
-app.put("/api/orders/:id", adminAuth, (req: Request, res: Response) => {
+app.put("/api/orders/:id", adminAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -495,7 +507,7 @@ app.put("/api/orders/:id", adminAuth, (req: Request, res: Response) => {
     return res.status(400).json({ error: "حالة الطلب مطلوبة." });
   }
 
-  const db = readDB();
+  const db = await getDB();
   const orderIndex = db.orders.findIndex(o => o.id === id);
 
   if (orderIndex === -1) {
@@ -503,15 +515,15 @@ app.put("/api/orders/:id", adminAuth, (req: Request, res: Response) => {
   }
 
   db.orders[orderIndex].status = status as OrderStatus;
-  writeDB(db);
+  await saveDB(db);
 
   res.json({ success: true, message: "تم تحديث حالة الطلب بنجاح!", order: db.orders[orderIndex] });
 });
 
 // 6. Delete Order (Admin only)
-app.delete("/api/orders/:id", adminAuth, (req: Request, res: Response) => {
+app.delete("/api/orders/:id", adminAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = readDB();
+  const db = await getDB();
   const initialLength = db.orders.length;
   db.orders = db.orders.filter(o => o.id !== id);
 
@@ -519,12 +531,12 @@ app.delete("/api/orders/:id", adminAuth, (req: Request, res: Response) => {
     return res.status(404).json({ error: "الطلب غير موجود." });
   }
 
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم حذف الطلب بنجاح!" });
 });
 
 // 7. Upload Product Image from Computer (Admin only)
-app.post("/api/upload", adminAuth, (req: Request, res: Response) => {
+app.post("/api/upload", adminAuth, async (req: Request, res: Response) => {
   const { imageBase64, fileName } = req.body;
   if (!imageBase64 || !fileName) {
     return res.status(400).json({ error: "الرجاء توفير الصورة والاسم للرفع." });
@@ -603,40 +615,40 @@ app.post("/api/generate-product", adminAuth, async (req: Request, res: Response)
 });
 
 // 9. Get Wilayas and Shipping Prices
-app.get("/api/wilayas", (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/wilayas", async (req: Request, res: Response) => {
+  const db = await getDB();
   res.json(db.wilayas || ALGERIAN_WILAYAS);
 });
 
 // 10. Update Wilayas and Shipping Prices (Admin only)
-app.post("/api/wilayas", adminAuth, (req: Request, res: Response) => {
+app.post("/api/wilayas", adminAuth, async (req: Request, res: Response) => {
   const updatedWilayas = req.body;
   if (!Array.isArray(updatedWilayas)) {
     return res.status(400).json({ error: "البيانات المرسلة يجب أن تكون مصفوفة." });
   }
 
-  const db = readDB();
+  const db = await getDB();
   db.wilayas = updatedWilayas;
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم تحديث أسعار شحن الولايات بنجاح!", wilayas: db.wilayas });
 });
 
 // 11. Get Telegram Settings (Admin only)
-app.get("/api/telegram-settings", adminAuth, (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/telegram-settings", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
   res.json(db.telegramSettings || defaultTelegramSettings);
 });
 
 // 12. Update Telegram Settings (Admin only)
-app.post("/api/telegram-settings", adminAuth, (req: Request, res: Response) => {
+app.post("/api/telegram-settings", adminAuth, async (req: Request, res: Response) => {
   const { botToken, chatId, enabled } = req.body;
   if (typeof botToken !== "string" || typeof chatId !== "string" || typeof enabled !== "boolean") {
     return res.status(400).json({ error: "البيانات المرسلة غير صالحة." });
   }
 
-  const db = readDB();
+  const db = await getDB();
   db.telegramSettings = { botToken, chatId, enabled };
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم تحديث إعدادات تيليغرام بنجاح!", settings: db.telegramSettings });
 });
 
@@ -688,25 +700,25 @@ app.post("/api/telegram-settings/test", adminAuth, async (req: Request, res: Res
 });
 
 // 14. Get Store Settings (Public)
-app.get("/api/store-settings", (req: Request, res: Response) => {
-  const db = readDB();
+app.get("/api/store-settings", async (req: Request, res: Response) => {
+  const db = await getDB();
   res.json(db.storeSettings || defaultStoreSettings);
 });
 
 // 15. Update Store Settings (Admin only)
-app.post("/api/store-settings", adminAuth, (req: Request, res: Response) => {
+app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) => {
   const { storeName, storeSub, tickerItems } = req.body;
   if (typeof storeName !== "string" || typeof storeSub !== "string" || !Array.isArray(tickerItems)) {
     return res.status(400).json({ error: "البيانات المرسلة غير صالحة." });
   }
 
-  const db = readDB();
+  const db = await getDB();
   db.storeSettings = {
     storeName,
     storeSub,
     tickerItems: tickerItems.filter(item => typeof item === "string" && item.trim() !== "")
   };
-  writeDB(db);
+  await saveDB(db);
   res.json({ success: true, message: "تم تحديث إعدادات المتجر بنجاح!", storeSettings: db.storeSettings });
 });
 
@@ -722,7 +734,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req: Request, res: Response) => {
+    app.get("*", async (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
