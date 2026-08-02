@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProductData, Wilaya, Order, StoreSettings } from '../types';
 import { ALGERIAN_WILAYAS } from './WilayaData';
 import { 
+  Facebook, Instagram, Music,
   ShoppingCart, Star, ShieldCheck, Truck, Sparkles, RefreshCw, 
   Wind, Layers, Package, Phone, User, MapPin, Send, Check, 
   ArrowRight, ChevronLeft, ChevronRight, Clock, Flame
@@ -279,7 +280,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
 
       {/* Elegant Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-md py-3 px-4 md:px-8 flex justify-between items-center transition-all duration-300">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 md:flex-none">
           <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-emerald-100/50 border border-slate-100 bg-white flex items-center justify-center">
             <img 
               src={product.logoUrl || jannaLogo} 
@@ -298,7 +299,58 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        
+
+        {/* Social Links Centered in Header */}
+        <div className="flex flex-1 justify-center items-center overflow-x-auto mx-2 md:mx-4">
+          <div className="flex justify-center gap-1.5 md:gap-2">
+            {/* Facebook */}
+            {storeSettings?.socialLinks?.facebook ? (
+              <a href={storeSettings.socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-full font-extrabold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                <Facebook size={16} />
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-50 text-slate-400 border border-slate-200 px-3 py-1.5 rounded-full font-extrabold text-xs opacity-50 cursor-not-allowed">
+                <Facebook size={16} />
+              </div>
+            )}
+            
+            {/* Instagram */}
+            {storeSettings?.socialLinks?.instagram ? (
+              <a href={storeSettings.socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-pink-50 text-pink-600 border border-pink-200 px-3 py-1.5 rounded-full font-extrabold text-xs hover:bg-pink-600 hover:text-white transition-all shadow-sm">
+                <Instagram size={16} />
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-50 text-slate-400 border border-slate-200 px-3 py-1.5 rounded-full font-extrabold text-xs opacity-50 cursor-not-allowed">
+                <Instagram size={16} />
+              </div>
+            )}
+            
+            {/* TikTok */}
+            {storeSettings?.socialLinks?.tiktok ? (
+              <a href={storeSettings.socialLinks.tiktok} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-zinc-50 text-zinc-800 border border-zinc-200 px-3 py-1.5 rounded-full font-extrabold text-xs hover:bg-zinc-800 hover:text-white transition-all shadow-sm">
+                <Music size={16} />
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-50 text-slate-400 border border-slate-200 px-3 py-1.5 rounded-full font-extrabold text-xs opacity-50 cursor-not-allowed">
+                <Music size={16} />
+              </div>
+            )}
+            
+            {/* Telegram */}
+            {storeSettings?.socialLinks?.telegram ? (
+              <a href={storeSettings.socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-sky-50 text-sky-600 border border-sky-200 px-3 py-1.5 rounded-full font-extrabold text-xs hover:bg-sky-600 hover:text-white transition-all shadow-sm">
+                <Send size={16} />
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-50 text-slate-400 border border-slate-200 px-3 py-1.5 rounded-full font-extrabold text-xs opacity-50 cursor-not-allowed">
+                <Send size={16} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none justify-end">
           <button 
             onClick={scrollToForm}
             className="hidden sm:flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black py-2 px-5 rounded-full shadow-md shadow-emerald-100 transition-all duration-200 text-sm"
@@ -380,6 +432,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
             }
           `}</style>
         </div>
+
         
         {/* Product Hero Section */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100">
@@ -878,32 +931,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
       </div>
 
       {/* Modern Algerian COD Style Footer */}
-      <footer className="bg-slate-900 text-slate-300 py-10 px-4 md:px-8 mt-16 border-t border-slate-800">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="space-y-3">
-            <span className="font-black text-lg text-white">جنة ستور | Janna Store 🇩🇿</span>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              نهدف لتقديم أفضل تجربة تسوق بالدفع عند الاستلام في الجزائر. منتجاتنا منتقاة بعناية ومضمونة الجودة مع خدمة توصيل سريعة ودعم متواصل.
-            </p>
-          </div>
-          <div className="space-y-3 text-right">
-            <span className="font-black text-sm text-white">روابط هامة</span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <a href="#checkout-section" className="hover:text-white transition-colors">استمارة الطلب</a>
-              <span className="text-slate-400">اتصل بنا: 0623456789</span>
-              <span className="text-slate-400">من نحن</span>
-              <span className="text-slate-400">سياسة الخصوصية</span>
-            </div>
-          </div>
-          <div className="space-y-3 md:text-left">
-            <span className="font-black text-sm text-white block">حماية المستهلك</span>
-            <p className="text-xs text-slate-400">
-              جميع حقوق مبيعات المتجر محفوظة. تفقد السلعة قبل دفع قيمتها كحق مشروع لك تماماً.
-            </p>
-            <span className="text-[10px] text-slate-500 block">نسخة مخصصة للمبيعات الاحترافية</span>
-          </div>
-        </div>
-      </footer>
+      
 
       {/* Success Order Confirmation Modal */}
       <AnimatePresence>

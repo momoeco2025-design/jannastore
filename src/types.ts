@@ -76,6 +76,12 @@ export interface StoreSettings {
   storeName: string;
   storeSub: string;
   tickerItems: string[];
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    telegram?: string;
+  };
 }
 
 

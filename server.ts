@@ -710,7 +710,7 @@ app.get("/api/store-settings", async (req: Request, res: Response) => {
 
 // 15. Update Store Settings (Admin only)
 app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) => {
-  const { storeName, storeSub, tickerItems } = req.body;
+  const { storeName, storeSub, tickerItems, socialLinks } = req.body;
   if (typeof storeName !== "string" || typeof storeSub !== "string" || !Array.isArray(tickerItems)) {
     return res.status(400).json({ error: "البيانات المرسلة غير صالحة." });
   }
@@ -719,8 +719,20 @@ app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) =
   db.storeSettings = {
     storeName,
     storeSub,
-    tickerItems: tickerItems.filter(item => typeof item === "string" && item.trim() !== "")
+    tickerItems: tickerItems.filter((item: any) => typeof item === "string" && item.trim() !== ""),
+    socialLinks: socialLinks ? JSON.parse(JSON.stringify(socialLinks)) : undefined
   };
+  
+  // Remove undefined properties to please Firestore
+  if (db.storeSettings.socialLinks === undefined) {
+    delete db.storeSettings.socialLinks;
+  } else {
+    Object.keys(db.storeSettings.socialLinks).forEach(key => {
+      if (db.storeSettings.socialLinks[key] === undefined) {
+        delete db.storeSettings.socialLinks[key];
+      }
+    });
+  }
   await saveDB(db);
   res.json({ success: true, message: "تم تحديث إعدادات المتجر بنجاح!", storeSettings: db.storeSettings });
 });

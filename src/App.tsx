@@ -107,7 +107,7 @@ export default function App() {
                       <input 
                         type={showPassword ? "text" : "password"}
                         required
-                        placeholder="أدخل الكود هنا (ADMINMASTER)"
+                        placeholder="أدخل الكود..."
                         value={passcode}
                         onChange={(e) => setPasscode(e.target.value)}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
@@ -141,7 +141,7 @@ export default function App() {
                   </button>
 
                   <div className="text-center">
-                    <span className="text-[10px] text-slate-400">تنويه: كود الدخول الافتراضي المعين من قبلك هو: <strong>ADMINMASTER</strong></span>
+                    <span className="text-[10px] text-slate-400">يرجى إدخال الكود السري للولوج</span>
                   </div>
 
                 </form>
