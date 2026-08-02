@@ -536,38 +536,38 @@ app.delete("/api/orders/:id", adminAuth, async (req: Request, res: Response) => 
 });
 
 // 7. Upload Product Image from Computer (Admin only)
+
+
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 app.post("/api/upload", adminAuth, async (req: Request, res: Response) => {
   const { imageBase64, fileName } = req.body;
-  if (!imageBase64 || !fileName) {
-    return res.status(400).json({ error: "الرجاء توفير الصورة والاسم للرفع." });
+  if (!imageBase64) {
+    return res.status(400).json({ error: "الرجاء توفير الصورة للرفع." });
   }
 
   try {
-    // Strip the data URL prefix if present (e.g., "data:image/png;base64,")
-    const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    let base64Data = imageBase64;
-    let extension = path.extname(fileName) || ".jpg";
-
-    if (matches && matches.length === 3) {
-      base64Data = matches[2];
-      const mimeType = matches[1];
-      if (mimeType === "image/png") extension = ".png";
-      else if (mimeType === "image/jpeg" || mimeType === "image/jpg") extension = ".jpg";
-      else if (mimeType === "image/gif") extension = ".gif";
-      else if (mimeType === "image/webp") extension = ".webp";
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(500).json({ error: "إعدادات Cloudinary غير متوفرة. الرجاء إضافتها في الإعدادات (Secrets)." });
     }
 
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const safeFileName = `upload-${uniqueSuffix}${extension}`;
-    const filePath = path.join(UPLOADS_DIR, safeFileName);
-
-    fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
+    // Upload to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload(imageBase64, {
+      folder: "jannastore_products",
+      resource_type: "image"
+    });
     
-    // Return relative URL for static serving
-    res.json({ url: `/uploads/${safeFileName}` });
-  } catch (error) {
-    console.error("Error saving uploaded image:", error);
-    res.status(500).json({ error: "فشل حفظ الصورة المرفوعة على الخادم." });
+    // Return the secure URL from Cloudinary
+    res.json({ url: uploadResponse.secure_url });
+  } catch (error: any) {
+    console.error("Error saving uploaded image to Cloudinary:", error);
+    res.status(500).json({ error: "فشل رفع الصورة إلى Cloudinary.", details: error.message });
   }
 });
 
