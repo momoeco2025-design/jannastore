@@ -218,6 +218,19 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
       const resData = await response.json();
       if (response.ok) {
         setSuccessOrder(resData.order);
+
+        // Meta Pixel: Purchase Event
+        if (typeof (window as any).fbq === 'function') {
+          (window as any).fbq('track', 'Purchase', {
+            value: totalPrice,
+            currency: 'DZD',
+            content_name: product?.title || 'Product',
+            content_ids: [product?.slug || 'unknown'],
+            content_type: 'product',
+            num_items: quantity
+          });
+        }
+
         // Clear form
         setName('');
         setPhone('');
