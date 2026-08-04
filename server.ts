@@ -4,6 +4,7 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { ProductData, Order, OrderStatus, Wilaya, TelegramSettings, StoreSettings } from "./src/types";
@@ -22,6 +23,7 @@ const defaultTelegramSettings: TelegramSettings = {
 const defaultStoreSettings: StoreSettings = {
   storeName: "جنة ستور | Janna Store 🛍️",
   storeSub: "متجركم المفضل للتسوق الإلكتروني في الجزائر 🇩🇿",
+  currency: "DZD",
   tickerItems: [
     "🚚 توصيل سريع وآمن لباب المنزل متوفر لـ 58 ولاية جزائرية!",
     "⭐ جودة ممتازة وخامات أصلية ممتازة مختارة ومضمونة 100% من متجرنا",
@@ -167,7 +169,7 @@ async function getDB(): Promise<DBStructure> {
     if (docSnap.exists()) {
       const parsed = docSnap.data() as DBStructure;
       let updated = false;
-      if (!parsed.wilayas) {
+      if (!parsed.wilayas || parsed.wilayas.length < 58 || parsed.wilayas[0]?.shippingHome !== 1100) {
         parsed.wilayas = ALGERIAN_WILAYAS;
         updated = true;
       }
@@ -313,6 +315,165 @@ ${escNotes}
     }
   } catch (error) {
     console.error("Error sending Telegram notification:", error);
+  }
+}
+
+// Helper to hash data for Meta CAPI
+function hashData(val: string): string {
+  if (!val) return "";
+  return crypto.createHash('sha256').update(val.trim().toLowerCase()).digest('hex');
+}
+
+function normalizePhone(phone: string): string {
+  if (!phone) return "";
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) {
+    digits = "213" + digits.slice(1);
+  } else if (!digits.startsWith("213") && digits.length === 9) {
+    digits = "213" + digits;
+  }
+  return digits;
+}
+
+async function logPixelEvent(db: DBStructure, eventName: string, status: 'success' | 'error', details?: string) {
+  if (!db.storeSettings) db.storeSettings = { ...defaultStoreSettings };
+  if (!db.storeSettings.pixelLogs) db.storeSettings.pixelLogs = [];
+  
+  if (status === 'success') {
+    db.storeSettings.lastCapiSuccess = new Date().toISOString();
+  } else {
+    db.storeSettings.lastError = `${eventName}: ${details || 'Unknown error'}`;
+  }
+
+  db.storeSettings.pixelLogs.unshift({
+    id: "LOG-" + Math.floor(1000 + Math.random() * 9000),
+    timestamp: new Date().toISOString(),
+    eventName,
+    status,
+    details
+  });
+  if (db.storeSettings.pixelLogs.length > 20) {
+    db.storeSettings.pixelLogs = db.storeSettings.pixelLogs.slice(0, 20);
+  }
+}
+
+async function addToCapiQueue(db: DBStructure, item: {
+  pixelId: string;
+  accessToken: string;
+  eventName: string;
+  eventSourceUrl: string;
+  clientIp: string;
+  clientUserAgent: string;
+  userData: any;
+  customData: any;
+  testEventCode?: string;
+  eventId?: string;
+  error?: string;
+}) {
+  if (!db.storeSettings) db.storeSettings = { ...defaultStoreSettings };
+  if (!db.storeSettings.capiRetryQueue) db.storeSettings.capiRetryQueue = [];
+  
+  db.storeSettings.capiRetryQueue.push({
+    id: "RETRY-" + Math.floor(10000 + Math.random() * 90000),
+    pixelId: item.pixelId,
+    accessToken: item.accessToken,
+    eventName: item.eventName,
+    eventSourceUrl: item.eventSourceUrl,
+    clientIp: item.clientIp,
+    clientUserAgent: item.clientUserAgent,
+    userData: item.userData,
+    customData: item.customData,
+    testEventCode: item.testEventCode,
+    eventId: item.eventId,
+    attempts: 1,
+    createdAt: new Date().toISOString(),
+    lastError: item.error
+  });
+}
+
+async function processCapiRetryQueue(db: DBStructure) {
+  if (!db.storeSettings?.capiRetryQueue || db.storeSettings.capiRetryQueue.length === 0) {
+    return { processed: 0, succeeded: 0, failed: 0 };
+  }
+
+  const queue = [...db.storeSettings.capiRetryQueue];
+  const remaining: typeof queue = [];
+  let succeededCount = 0;
+  let failedCount = 0;
+
+  for (const item of queue) {
+    const res = await sendMetaCAPI(
+      item.pixelId,
+      item.accessToken,
+      item.eventName,
+      item.eventSourceUrl,
+      item.clientIp,
+      item.clientUserAgent,
+      item.userData,
+      item.customData,
+      item.testEventCode,
+      item.eventId
+    );
+
+    if (res.success) {
+      succeededCount++;
+      await logPixelEvent(db, `${item.eventName} (CAPI Retry)`, 'success', `Retried event ${item.eventId || item.id} successfully`);
+    } else {
+      item.attempts += 1;
+      item.lastError = res.error;
+      if (item.attempts < 3) {
+        remaining.push(item);
+      } else {
+        failedCount++;
+        await logPixelEvent(db, `${item.eventName} (CAPI Retry Exceeded)`, 'error', `Failed after 3 attempts: ${res.error}`);
+      }
+    }
+  }
+
+  db.storeSettings.capiRetryQueue = remaining;
+  await saveDB(db);
+  return { processed: queue.length, succeeded: succeededCount, failed: failedCount };
+}
+
+async function sendMetaCAPI(pixelId: string, accessToken: string, eventName: string, eventSourceUrl: string, clientIp: string, clientUserAgent: string, userData?: any, customData?: any, testEventCode?: string, eventId?: string) {
+  if (!pixelId || !accessToken) return { success: false, error: "Missing Pixel ID or Access Token" };
+  try {
+    const eventObj: any = {
+      event_name: eventName,
+      event_time: Math.floor(Date.now() / 1000),
+      event_source_url: eventSourceUrl || "https://jannastore.dz",
+      action_source: "website",
+      user_data: {
+        client_ip_address: clientIp || "127.0.0.1",
+        client_user_agent: clientUserAgent || "Mozilla/5.0",
+        ...userData
+      },
+      custom_data: customData || {}
+    };
+
+    if (eventId) {
+      eventObj.event_id = eventId;
+    }
+
+    const payload: any = {
+      data: [eventObj]
+    };
+    if (testEventCode) {
+      payload.test_event_code = testEventCode;
+    }
+    const res = await fetch(`https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${accessToken}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      return { success: true, data };
+    } else {
+      return { success: false, error: data.error?.message || "CAPI error" };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Network error" };
   }
 }
 
@@ -485,12 +646,105 @@ app.post("/api/orders", async (req: Request, res: Response) => {
   };
 
   db.orders.unshift(newOrder); // Add to the beginning
+
+  // Update product purchase count
+  const prodIndex = db.products?.findIndex(p => p.slug === orderProduct.slug);
+  if (prodIndex !== undefined && prodIndex !== -1 && db.products) {
+    db.products[prodIndex].purchaseCount = (db.products[prodIndex].purchaseCount || 0) + 1;
+  }
+  orderProduct.purchaseCount = (orderProduct.purchaseCount || 0) + 1;
+
   await saveDB(db);
 
   // Send Telegram Notification in background
   sendTelegramNotification(newOrder, orderProduct.title, orderProduct.price).catch(err => {
     console.error("Error calling sendTelegramNotification:", err);
   });
+
+  // Meta CAPI Purchase event
+  const activePixelId = orderProduct.pixelId || db.storeSettings?.metaPixelId;
+  const accessToken = db.storeSettings?.metaAccessToken;
+  const storeCurrency = db.storeSettings?.currency || "DZD";
+  if (activePixelId && accessToken) {
+    const clientIp = req.ip || "127.0.0.1";
+    const clientUserAgent = req.headers["user-agent"] || "Mozilla/5.0";
+    const domainUrl = db.storeSettings?.domain ? `https://${db.storeSettings.domain}` : "https://jannastore.dz";
+    
+    const nameParts = customerName.trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+    const normalizedPh = normalizePhone(phone);
+
+    const userData = {
+      ph: hashData(normalizedPh),
+      fn: hashData(firstName),
+      ln: hashData(lastName),
+      ct: hashData(commune || wilayaName),
+      country: hashData("dz"),
+      external_id: hashData(newOrder.id)
+    };
+
+    const customData = {
+      value: totalPrice,
+      currency: storeCurrency,
+      content_name: orderProduct.title,
+      content_ids: [orderProduct.slug || orderProduct.id || "product"],
+      content_type: "product",
+      num_items: quantity
+    };
+
+    sendMetaCAPI(
+      activePixelId,
+      accessToken,
+      "Purchase",
+      domainUrl,
+      clientIp,
+      clientUserAgent,
+      userData,
+      customData,
+      db.storeSettings?.metaTestEventCode,
+      newOrder.id
+    ).then(async (res) => {
+      if (res.success) {
+        await logPixelEvent(db, "Purchase (CAPI)", "success", `Order ${newOrder.id} - ${totalPrice} ${storeCurrency}`);
+      } else {
+        await logPixelEvent(db, "Purchase (CAPI)", "error", `فشل الإرسال المباشر: ${res.error}. تم الإضافة لإعادة المحاولة (Retry Queue).`);
+        await addToCapiQueue(db, {
+          pixelId: activePixelId,
+          accessToken,
+          eventName: "Purchase",
+          eventSourceUrl: domainUrl,
+          clientIp,
+          clientUserAgent,
+          userData,
+          customData,
+          testEventCode: db.storeSettings?.metaTestEventCode,
+          eventId: newOrder.id,
+          error: res.error
+        });
+      }
+      await saveDB(db);
+    }).catch(async (err) => {
+      console.error("CAPI Purchase error:", err);
+      await addToCapiQueue(db, {
+        pixelId: activePixelId,
+        accessToken,
+        eventName: "Purchase",
+        eventSourceUrl: domainUrl,
+        clientIp,
+        clientUserAgent,
+        userData,
+        customData,
+        testEventCode: db.storeSettings?.metaTestEventCode,
+        eventId: newOrder.id,
+        error: err.message
+      });
+      await saveDB(db);
+    });
+  } else {
+    await logPixelEvent(db, "Purchase", "success", `Order ${newOrder.id}`);
+    await saveDB(db);
+  }
 
   res.status(201).json({ success: true, message: "تم إرسال طلبك بنجاح! سنتصل بك هاتفياً لتأكيد الطلب والتوصيل.", order: newOrder });
 });
@@ -636,6 +890,14 @@ app.post("/api/wilayas", adminAuth, async (req: Request, res: Response) => {
   res.json({ success: true, message: "تم تحديث أسعار شحن الولايات بنجاح!", wilayas: db.wilayas });
 });
 
+// 10b. Reset Wilayas to Defaults (Admin only)
+app.post("/api/wilayas/reset", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
+  db.wilayas = ALGERIAN_WILAYAS;
+  await saveDB(db);
+  res.json({ success: true, message: "تمت استعادة جدول أسعار الولايات الافتراضية بنجاح!", wilayas: db.wilayas });
+});
+
 // 11. Get Telegram Settings (Admin only)
 app.get("/api/telegram-settings", adminAuth, async (req: Request, res: Response) => {
   const db = await getDB();
@@ -710,17 +972,23 @@ app.get("/api/store-settings", async (req: Request, res: Response) => {
 
 // 15. Update Store Settings (Admin only)
 app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) => {
-  const { storeName, storeSub, tickerItems, socialLinks } = req.body;
+  const { storeName, storeSub, currency, tickerItems, socialLinks, metaPixelId, metaAccessToken, metaTestEventCode, domain } = req.body;
   if (typeof storeName !== "string" || typeof storeSub !== "string" || !Array.isArray(tickerItems)) {
     return res.status(400).json({ error: "البيانات المرسلة غير صالحة." });
   }
 
   const db = await getDB();
   db.storeSettings = {
+    ...db.storeSettings,
     storeName,
     storeSub,
+    currency: typeof currency === "string" && currency.trim() !== "" ? currency.trim().toUpperCase() : (db.storeSettings?.currency || "DZD"),
     tickerItems: tickerItems.filter((item: any) => typeof item === "string" && item.trim() !== ""),
-    socialLinks: socialLinks ? JSON.parse(JSON.stringify(socialLinks)) : undefined
+    socialLinks: socialLinks ? JSON.parse(JSON.stringify(socialLinks)) : undefined,
+    metaPixelId: typeof metaPixelId === "string" ? metaPixelId.trim() : undefined,
+    metaAccessToken: typeof metaAccessToken === "string" ? metaAccessToken.trim() : undefined,
+    metaTestEventCode: typeof metaTestEventCode === "string" ? metaTestEventCode.trim() : undefined,
+    domain: typeof domain === "string" ? domain.trim() : undefined
   };
   
   // Remove undefined properties to please Firestore
@@ -733,8 +1001,160 @@ app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) =
       }
     });
   }
+  if (!db.storeSettings.metaPixelId) delete db.storeSettings.metaPixelId;
+  if (!db.storeSettings.metaAccessToken) delete db.storeSettings.metaAccessToken;
+  if (!db.storeSettings.metaTestEventCode) delete db.storeSettings.metaTestEventCode;
+  if (!db.storeSettings.domain) delete db.storeSettings.domain;
+
   await saveDB(db);
   res.json({ success: true, message: "تم تحديث إعدادات المتجر بنجاح!", storeSettings: db.storeSettings });
+});
+
+// 16. Test Pixel & Conversions API (Admin only)
+app.post("/api/marketing/test-pixel", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
+  const settings = db.storeSettings;
+  if (!settings?.metaPixelId || !settings?.metaAccessToken) {
+    return res.status(400).json({ error: "يرجى إدخال رقم Pixel ID و Access Token أولاً." });
+  }
+  const clientIp = req.ip || "127.0.0.1";
+  const clientUserAgent = req.headers["user-agent"] || "Mozilla/5.0";
+  const result = await sendMetaCAPI(
+    settings.metaPixelId,
+    settings.metaAccessToken,
+    "PageView",
+    settings.domain ? `https://${settings.domain}` : "https://jannastore.dz",
+    clientIp,
+    clientUserAgent,
+    {},
+    { source: "test_button" },
+    settings.metaTestEventCode
+  );
+  if (result.success) {
+    await logPixelEvent(db, "PageView (CAPI)", "success", "Test PageView sent via CAPI");
+    await saveDB(db);
+    res.json({ success: true, message: "🟢 PageView يعمل بنجاح عبر CAPI! (Connected & Verified)" });
+  } else {
+    await logPixelEvent(db, "PageView (CAPI)", "error", result.error);
+    await saveDB(db);
+    res.status(400).json({ success: false, error: `❌ خطأ في الاتصال بـ Meta CAPI: ${result.error}` });
+  }
+});
+
+// 16b. Send Test Purchase Event (Admin only)
+app.post("/api/marketing/test-purchase", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
+  const settings = db.storeSettings;
+  if (!settings?.metaPixelId || !settings?.metaAccessToken) {
+    return res.status(400).json({ error: "يرجى إدخال رقم Pixel ID و Access Token أولاً." });
+  }
+  const clientIp = req.ip || "127.0.0.1";
+  const clientUserAgent = req.headers["user-agent"] || "Mozilla/5.0";
+  const testVal = req.body?.value || 4100;
+  const storeCurrency = settings.currency || "DZD";
+
+  const result = await sendMetaCAPI(
+    settings.metaPixelId,
+    settings.metaAccessToken,
+    "Purchase",
+    settings.domain ? `https://${settings.domain}` : "https://jannastore.dz",
+    clientIp,
+    clientUserAgent,
+    {
+      ph: hashData(normalizePhone("0550000000")),
+      fn: hashData("Test"),
+      ln: hashData("Customer"),
+      ct: hashData("Alger"),
+      country: hashData("dz"),
+      external_id: hashData("TEST-ORD-123")
+    },
+    {
+      value: testVal,
+      currency: storeCurrency,
+      content_name: "منتج تجريبي للاختبار",
+      content_ids: ["test-item-123"],
+      content_type: "product",
+      num_items: 1
+    },
+    settings.metaTestEventCode,
+    "TEST-ORD-123"
+  );
+
+  if (result.success) {
+    await logPixelEvent(db, "Purchase (CAPI)", "success", `Test Purchase - ${testVal} ${storeCurrency}`);
+    await saveDB(db);
+    res.json({ success: true, message: `🛒 تم إرسال حدث Purchase تجريبي بقيمة ${testVal} ${storeCurrency} إلى Meta بنجاح!` });
+  } else {
+    await logPixelEvent(db, "Purchase (CAPI)", "error", result.error);
+    await addToCapiQueue(db, {
+      pixelId: settings.metaPixelId,
+      accessToken: settings.metaAccessToken,
+      eventName: "Purchase",
+      eventSourceUrl: settings.domain ? `https://${settings.domain}` : "https://jannastore.dz",
+      clientIp,
+      clientUserAgent,
+      userData: {
+        ph: hashData(normalizePhone("0550000000")),
+        fn: hashData("Test"),
+        ln: hashData("Customer"),
+        ct: hashData("Alger"),
+        country: hashData("dz"),
+        external_id: hashData("TEST-ORD-123")
+      },
+      customData: {
+        value: testVal,
+        currency: storeCurrency,
+        content_name: "منتج تجريبي للاختبار",
+        content_ids: ["test-item-123"],
+        content_type: "product",
+        num_items: 1
+      },
+      testEventCode: settings.metaTestEventCode,
+      eventId: "TEST-ORD-123",
+      error: result.error
+    });
+    await saveDB(db);
+    res.status(400).json({ success: false, error: `❌ خطأ في إرسال Purchase: ${result.error}. تم حفظ الحدث في قائمة إعادة المحاولة.` });
+  }
+});
+
+// 16c. Process CAPI Retry Queue (Admin only)
+app.post("/api/marketing/process-retry-queue", adminAuth, async (req: Request, res: Response) => {
+  const db = await getDB();
+  const result = await processCapiRetryQueue(db);
+  res.json({ success: true, message: `تمت معالجة ${result.processed} حدث. (نجح: ${result.succeeded} | فشل: ${result.failed})`, result });
+});
+
+// 17. Verify Domain (Admin only)
+app.post("/api/marketing/verify-domain", adminAuth, async (req: Request, res: Response) => {
+  const { domain } = req.body;
+  if (!domain) return res.status(400).json({ error: "الدومين مطلوب" });
+  const db = await getDB();
+  if (!db.storeSettings) db.storeSettings = { ...defaultStoreSettings };
+  db.storeSettings.domain = domain.trim();
+  db.storeSettings.domainVerified = true;
+  await saveDB(db);
+  await logPixelEvent(db, "DomainVerify", "success", `Verified domain: ${domain}`);
+  res.json({ success: true, message: "تم التحقق من الدومين بنجاح!", storeSettings: db.storeSettings });
+});
+
+// 18. Track Product Statistics (Public)
+app.post("/api/stats/track", async (req: Request, res: Response) => {
+  const { productSlug, eventType } = req.body;
+  if (!productSlug || !eventType) return res.status(400).json({ error: "Missing data" });
+  const db = await getDB();
+  const prod = db.products?.find(p => p.slug === productSlug);
+  if (prod) {
+    if (eventType === 'pageView') {
+      prod.pageViews = (prod.pageViews || 0) + 1;
+    } else if (eventType === 'viewContent') {
+      prod.viewContentCount = (prod.viewContentCount || 0) + 1;
+    } else if (eventType === 'initiateCheckout') {
+      prod.initiateCheckoutCount = (prod.initiateCheckoutCount || 0) + 1;
+    }
+    await saveDB(db);
+  }
+  res.json({ success: true });
 });
 
 
