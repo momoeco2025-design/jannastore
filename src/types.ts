@@ -33,6 +33,11 @@ export interface ProductData {
   videoUrl?: string;
   coverUrl?: string;
   logoUrl?: string;
+  pixelId?: string; // Meta Pixel ID for this specific product
+  pageViews?: number;
+  viewContentCount?: number;
+  initiateCheckoutCount?: number;
+  purchaseCount?: number;
   images: ProductImage[];
   features: ProductFeature[];
   reviews: Review[];
@@ -72,9 +77,35 @@ export interface TelegramSettings {
   enabled: boolean;
 }
 
+export interface PixelLogEntry {
+  id: string;
+  timestamp: string;
+  eventName: string;
+  status: 'success' | 'error';
+  details?: string;
+}
+
+export interface CapiQueueItem {
+  id: string;
+  pixelId: string;
+  accessToken: string;
+  eventName: string;
+  eventSourceUrl: string;
+  clientIp: string;
+  clientUserAgent: string;
+  userData: any;
+  customData: any;
+  testEventCode?: string;
+  eventId?: string;
+  attempts: number;
+  createdAt: string;
+  lastError?: string;
+}
+
 export interface StoreSettings {
   storeName: string;
   storeSub: string;
+  currency?: string;
   tickerItems: string[];
   socialLinks?: {
     facebook?: string;
@@ -82,7 +113,18 @@ export interface StoreSettings {
     tiktok?: string;
     telegram?: string;
   };
+  metaPixelId?: string;
+  metaAccessToken?: string;
+  metaTestEventCode?: string;
+  domain?: string;
+  domainVerified?: boolean;
+  pixelLogs?: PixelLogEntry[];
+  capiRetryQueue?: CapiQueueItem[];
+  lastPixelSuccess?: string;
+  lastCapiSuccess?: string;
+  lastError?: string;
 }
+
 
 
 

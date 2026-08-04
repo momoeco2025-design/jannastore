@@ -5,7 +5,7 @@ import {
   Lock, LogOut, Settings, Plus, Minus, Star, Trash2, Edit2, Check,
   TrendingUp, Calendar, MapPin, Phone, User, Info, DollarSign,
   Search, Filter, Download, ShoppingCart, RefreshCw, Package, ArrowRight,
-  Upload, Wand2, Truck, Send, Sparkles, ShoppingBag, Copy
+  Upload, Wand2, Truck, Send, Sparkles, ShoppingBag, Copy, RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -76,6 +76,125 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
   const [prodSlug, setProdSlug] = useState('');
   const [prodCoverUrl, setProdCoverUrl] = useState('');
   const [prodLogoUrl, setProdLogoUrl] = useState('');
+  const [prodPixelId, setProdPixelId] = useState('');
+
+  // Marketing Integrations state
+  const [marketingSubTab, setMarketingSubTab] = useState<'meta' | 'tiktok' | 'snapchat' | 'google_ads' | 'google_analytics' | 'pinterest'>('meta');
+  const [testPixelLoading, setTestPixelLoading] = useState(false);
+  const [testPixelMessage, setTestPixelMessage] = useState('');
+  const [domainVerifyInput, setDomainVerifyInput] = useState('');
+  const [domainVerifying, setDomainVerifying] = useState(false);
+
+  const handleTestPixel = async () => {
+    setTestPixelLoading(true);
+    setTestPixelMessage('');
+    try {
+      const res = await fetch('/api/marketing/test-pixel', {
+        method: 'POST',
+        headers: { 'X-Admin-Token': adminToken }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestPixelMessage(data.message || '🟢 PageView يعمل بنجاح عبر CAPI!');
+        const sRes = await fetch('/api/store-settings');
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          setStoreSettings(sData);
+        }
+      } else {
+        setTestPixelMessage(data.error || '❌ فشل اختبار البيكسل.');
+      }
+    } catch (err) {
+      setTestPixelMessage('❌ خطأ في الاتصال بالخادم.');
+    } finally {
+      setTestPixelLoading(false);
+    }
+  };
+
+  const [testPurchaseLoading, setTestPurchaseLoading] = useState(false);
+  const [retryQueueLoading, setRetryQueueLoading] = useState(false);
+
+  const handleProcessRetryQueue = async () => {
+    setRetryQueueLoading(true);
+    setTestPixelMessage('');
+    try {
+      const res = await fetch('/api/marketing/process-retry-queue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestPixelMessage(`🔄 ${data.message}`);
+        const sRes = await fetch('/api/store-settings');
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          setStoreSettings(sData);
+        }
+      } else {
+        setTestPixelMessage(data.error || '❌ فشل معالجة قائمة الإعادة.');
+      }
+    } catch (err) {
+      setTestPixelMessage('❌ خطأ في الاتصال بالخادم.');
+    } finally {
+      setRetryQueueLoading(false);
+    }
+  };
+
+  const handleTestPurchase = async () => {
+    setTestPurchaseLoading(true);
+    setTestPixelMessage('');
+    try {
+      const res = await fetch('/api/marketing/test-purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        },
+        body: JSON.stringify({ value: 4100 })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestPixelMessage(data.message || '🛒 تم إرسال حدث Purchase تجريبي بنجاح!');
+        const sRes = await fetch('/api/store-settings');
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          setStoreSettings(sData);
+        }
+      } else {
+        setTestPixelMessage(data.error || '❌ فشل إرسال Purchase تجريبي.');
+      }
+    } catch (err) {
+      setTestPixelMessage('❌ خطأ في الاتصال بالخادم.');
+    } finally {
+      setTestPurchaseLoading(false);
+    }
+  };
+
+  const handleVerifyDomain = async () => {
+    if (!domainVerifyInput.trim()) return;
+    setDomainVerifying(true);
+    try {
+      const res = await fetch('/api/marketing/verify-domain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        },
+        body: JSON.stringify({ domain: domainVerifyInput })
+      });
+      const data = await res.json();
+      if (res.ok && data.storeSettings) {
+        setStoreSettings(data.storeSettings);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDomainVerifying(false);
+    }
+  };
 
   // Local state for editing product fields
   const [prodTitle, setProdTitle] = useState('');
@@ -153,7 +272,11 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           storeName,
           storeSub,
           tickerItems,
-          socialLinks: storeSettings?.socialLinks
+          socialLinks: storeSettings?.socialLinks,
+          metaPixelId: storeSettings?.metaPixelId,
+          metaAccessToken: storeSettings?.metaAccessToken,
+          metaTestEventCode: storeSettings?.metaTestEventCode,
+          domain: storeSettings?.domain
         })
       });
       if (res.ok) {
@@ -292,6 +415,34 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     }
   };
 
+  const handleResetShippingPrices = async () => {
+    if (!window.confirm('هل أنت تأكد من إرجاع أسعار التوصيل إلى الأسعار الرسمية للـ 58 ولاية؟')) return;
+    setSavingShipping(true);
+    setShippingSaveSuccess(false);
+    setShippingSaveError('');
+    try {
+      const res = await fetch('/api/wilayas/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        }
+      });
+      const data = await res.json();
+      if (res.ok && data.wilayas) {
+        setWilayas(data.wilayas);
+        setShippingSaveSuccess(true);
+        setTimeout(() => setShippingSaveSuccess(false), 3000);
+      } else {
+        setShippingSaveError(data.error || 'فشل استعادة الأسعار.');
+      }
+    } catch (err) {
+      setShippingSaveError('فشل الاتصال بالخادم.');
+    } finally {
+      setSavingShipping(false);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       setOrdersLoading(true);
@@ -357,6 +508,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdSlug(p.slug || '');
     setProdCoverUrl(p.coverUrl || '');
     setProdLogoUrl(p.logoUrl || '');
+    setProdPixelId(p.pixelId || '');
     setProdTitle(p.title);
     setProdSubtitle(p.subtitle);
     setProdDescription(p.description);
@@ -375,6 +527,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdSlug('');
     setProdCoverUrl('');
     setProdLogoUrl('');
+    setProdPixelId('');
     setProdTitle('');
     setProdSubtitle('');
     setProdDescription('');
@@ -689,6 +842,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
       stockCount: Number(prodStockCount),
       coverUrl: prodCoverUrl,
       logoUrl: prodLogoUrl,
+      pixelId: prodPixelId.trim() || undefined,
       images: prodImages,
       features: prodFeatures,
       reviews: prodReviews
@@ -1242,6 +1396,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                           <th scope="col" className="px-6 py-4 text-center">رابط صفحة الهبوط</th>
                           <th scope="col" className="px-6 py-4 text-center">الصفحة الرئيسية 🏠</th>
                           <th scope="col" className="px-6 py-4 text-center">السعر الحالي</th>
+                          <th scope="col" className="px-6 py-4 text-center">إحصائيات المبيعات والزيارات 📊</th>
                           <th scope="col" className="px-6 py-4 text-center">ميزات/صور/آراء</th>
                           <th scope="col" className="px-6 py-4 text-center">الإجراءات</th>
                         </tr>
@@ -1315,6 +1470,19 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                               {p.oldPrice > 0 && (
                                 <span className="text-slate-400 text-[10px] line-through block mt-1">{p.oldPrice} دج</span>
                               )}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex flex-col items-center gap-1 text-[11px] font-bold text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded" title="Page Views">👁️ {p.pageViews || 0} زائر</span>
+                                  <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded" title="View Content">🎯 {p.viewContentCount || 0} مشاهدة</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded" title="Initiate Checkout">🛒 {p.initiateCheckoutCount || 0} طلب مبدئي</span>
+                                  <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded" title="Purchase">💰 {p.purchaseCount || 0} مبيعة</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-extrabold mt-1">CR: {p.pageViews && p.pageViews > 0 ? (((p.purchaseCount || 0) / p.pageViews) * 100).toFixed(1) : '0.0'}%</span>
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-500">
@@ -1737,6 +1905,18 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="space-y-1.5 text-right">
+                  <label className="text-xs font-bold text-slate-700 block">رقم Meta Pixel ID خاص بهذا المنتج (اختياري)</label>
+                  <input
+                    type="text"
+                    value={prodPixelId}
+                    onChange={(e) => setProdPixelId(e.target.value)}
+                    placeholder="اتركه فارغاً لاستخدام بيكسل المتجر العام الافتراضي"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-left"
+                    dir="ltr"
+                  />
                 </div>
 
                 {/* Description content */}
@@ -2251,18 +2431,30 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                     )}
                   </div>
 
-                  <button
-                    onClick={handleSaveShippingPrices}
-                    disabled={savingShipping}
-                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm px-8 py-3.5 rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {savingShipping ? (
-                      <RefreshCw size={18} className="animate-spin" />
-                    ) : (
-                      <Check size={18} />
-                    )}
-                    <span>حفظ أسعار التوصيل الجديدة 💾</span>
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleResetShippingPrices}
+                      disabled={savingShipping}
+                      className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs px-5 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw size={16} />
+                      <span>إعادة ضبط أسعار الـ 58 ولاية 🔄</span>
+                    </button>
+
+                    <button
+                      onClick={handleSaveShippingPrices}
+                      disabled={savingShipping}
+                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm px-8 py-3.5 rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {savingShipping ? (
+                        <RefreshCw size={18} className="animate-spin" />
+                      ) : (
+                        <Check size={18} />
+                      )}
+                      <span>حفظ أسعار التوصيل الجديدة 💾</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -2503,7 +2695,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
 
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 text-right">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-800">اسم المتجر الأساسي</label>
                   <input
@@ -2520,6 +2712,17 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                     value={storeSettings.storeSub}
                     onChange={(e) => setStoreSettings({...storeSettings, storeSub: e.target.value})}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-800">العملة (Currency)</label>
+                  <input
+                    type="text"
+                    value={storeSettings.currency || 'DZD'}
+                    onChange={(e) => setStoreSettings({...storeSettings, currency: e.target.value})}
+                    placeholder="DZD"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    dir="ltr"
                   />
                 </div>
               </div>
@@ -2585,6 +2788,267 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Marketing Integration Sub-Tabs */}
+              <div className="pt-6 border-t border-slate-200" dir="rtl">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-black text-lg text-slate-900 flex items-center gap-2">
+                    <span>⚡ Marketing Integrations</span>
+                  </h4>
+                </div>
+
+                {/* Sub-Tabs Bar */}
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-5 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setMarketingSubTab('meta')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                      marketingSubTab === 'meta'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>📘 Meta</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMarketingSubTab('tiktok')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                      marketingSubTab === 'tiktok'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🎵 TikTok</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMarketingSubTab('google_analytics')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                      marketingSubTab === 'google_analytics'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>📈 Google Analytics</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMarketingSubTab('google_ads')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                      marketingSubTab === 'google_ads'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🎯 Google Ads</span>
+                  </button>
+                </div>
+
+                {/* Tab Content: Meta */}
+                {marketingSubTab === 'meta' && (
+                  <div className="space-y-6">
+                    {/* Status Overview Badges */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${storeSettings.metaPixelId ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${storeSettings.metaPixelId ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                          <span className="font-extrabold text-xs">Browser Pixel</span>
+                        </div>
+                        <span className="text-xs font-black">
+                          {storeSettings.metaPixelId ? '🟢 Connected' : '🔴 Not Connected'}
+                        </span>
+                      </div>
+
+                      <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${storeSettings.metaAccessToken ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${storeSettings.metaAccessToken ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                          <span className="font-extrabold text-xs">Conversions API (CAPI)</span>
+                        </div>
+                        <span className="text-xs font-black">
+                          {storeSettings.metaAccessToken ? '🟢 Connected' : '🔴 Not Connected'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Meta Fields */}
+                    <div className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">Pixel ID</label>
+                          <input
+                            type="text"
+                            placeholder="مثال: 123456789012345"
+                            value={storeSettings.metaPixelId || ''}
+                            onChange={(e) => setStoreSettings({...storeSettings, metaPixelId: e.target.value})}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            dir="ltr"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">CAPI Token (Conversions API)</label>
+                          <input
+                            type="text"
+                            placeholder="EAA..."
+                            value={storeSettings.metaAccessToken || ''}
+                            onChange={(e) => setStoreSettings({...storeSettings, metaAccessToken: e.target.value})}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            dir="ltr"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 block">Test Event Code (اختياري)</label>
+                          <input
+                            type="text"
+                            placeholder="مثال: TEST12345"
+                            value={storeSettings.metaTestEventCode || ''}
+                            onChange={(e) => setStoreSettings({...storeSettings, metaTestEventCode: e.target.value})}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleTestPixel}
+                          disabled={testPixelLoading}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <span>{testPixelLoading ? 'جاري التحقق...' : '⚡ Test Connection'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleTestPurchase}
+                          disabled={testPurchaseLoading}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <span>{testPurchaseLoading ? 'جاري الإرسال...' : '🛒 Send Test Purchase'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleProcessRetryQueue}
+                          disabled={retryQueueLoading}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <span>{retryQueueLoading ? 'جاري الإعادة...' : `🔄 معالجة قائمة الإعادة (${storeSettings.capiRetryQueue?.length || 0})`}</span>
+                        </button>
+                      </div>
+
+                      {testPixelMessage && (
+                        <div className={`mt-3 text-xs font-black px-4 py-3 rounded-xl border ${testPixelMessage.includes('🟢') || testPixelMessage.includes('بنجاح') || testPixelMessage.includes('🛒') || testPixelMessage.includes('🔄') ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
+                          {testPixelMessage}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Meta Operational Diagnostics */}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between font-extrabold text-slate-800">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-blue-600">🛠️</span>
+                          <span>تشخيص النظام (Meta System Diagnostics)</span>
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-500">
+                          Queue Status: {storeSettings.capiRetryQueue?.length || 0} Pending Items
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-bold">آخر نجاح لـ Browser Pixel</span>
+                          <span className="font-extrabold text-slate-700 text-[11px]">
+                            {storeSettings.lastPixelSuccess ? new Date(storeSettings.lastPixelSuccess).toLocaleString('ar-DZ') : 'غير مسجل'}
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-bold">آخر نجاح لـ CAPI Server</span>
+                          <span className="font-extrabold text-slate-700 text-[11px]">
+                            {storeSettings.lastCapiSuccess ? new Date(storeSettings.lastCapiSuccess).toLocaleString('ar-DZ') : 'غير مسجل'}
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-bold">آخر خطأ مسجل</span>
+                          <span className="font-extrabold text-red-600 text-[11px] truncate block" title={storeSettings.lastError}>
+                            {storeSettings.lastError || 'لا يوجد أي خطأ'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Event Manager Table */}
+                    <div className="mt-6">
+                      <h5 className="font-extrabold text-sm text-slate-900 mb-3 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          📊 Event Manager (آخر الأحداث)
+                        </span>
+                        <span className="text-xs text-slate-500 font-normal">
+                          تتبع حي مع الوقت والتفاصيل
+                        </span>
+                      </h5>
+                      <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <table className="w-full text-right text-xs">
+                          <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 text-right">الحدث (Event)</th>
+                              <th className="px-4 py-3 text-center">الحالة (Status)</th>
+                              <th className="px-4 py-3 text-center">الوقت (Time)</th>
+                              <th className="px-4 py-3 text-right">التفاصيل (Details)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-bold">
+                            {(!storeSettings.pixelLogs || storeSettings.pixelLogs.length === 0) ? (
+                              <tr>
+                                <td colSpan={4} className="px-4 py-8 text-center text-slate-400 font-medium">
+                                  لا توجد أحداث مسجلة بعد. عند تصفح الموقع أو إتمام الطلب أو الضغط على أزرار التجربة ستظهر الأحداث هنا مباشرة.
+                                </td>
+                              </tr>
+                            ) : (
+                              storeSettings.pixelLogs.map((log) => (
+                                <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-slate-900 font-extrabold flex items-center gap-1.5">
+                                    <span className="text-emerald-600">✅</span>
+                                    <span>{log.eventName}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${log.status === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                      {log.status === 'success' ? 'Success' : 'Error'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-500 dir-ltr text-[11px]" dir="ltr">
+                                    {new Date(log.timestamp).toLocaleTimeString('ar-DZ')}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600 text-[11px]">
+                                    {log.details || 'تتبع تلقائي عبر المتصفح والخادم'}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab Content: Other Platforms */}
+                {marketingSubTab !== 'meta' && (
+                  <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                    <span className="text-3xl">⏳</span>
+                    <h5 className="font-extrabold text-sm text-slate-800">
+                      تكامل {marketingSubTab === 'tiktok' ? 'TikTok Pixel' : marketingSubTab === 'google_analytics' ? 'Google Analytics 4' : 'Google Ads'} سيتم تفعيله قريباً
+                    </h5>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      النظام مهيأ للتكامل مع باقي منصات الإعلانات، وحالياً Meta Pixel & CAPI يعمل بشكل كامل ومتوافق مع المتاجر الجزائرية (DZD).
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Error and Success states */}

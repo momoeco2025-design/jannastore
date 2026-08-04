@@ -111,6 +111,155 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
     };
   }, []);
 
+  // Meta Pixel tracking effect
+  useEffect(() => {
+    const pixelId = product?.pixelId || storeSettings?.metaPixelId;
+    if (!pixelId) return;
+
+    const w = window as any;
+    const d = document;
+    if (!w.fbq) {
+      const n: any = w.fbq = function() {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+      };
+      if (!w._fbq) w._fbq = n;
+      n.push = n;
+      n.loaded = !0;
+      n.version = '2.0';
+      n.queue = [];
+      const t: any = d.createElement('script');
+      t.async = !0;
+      t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      const elem = d.getElementsByTagName('script')[0];
+      if (elem && elem.parentNode) {
+        elem.parentNode.insertBefore(t, elem);
+      } else {
+        d.head.appendChild(t);
+      }
+      w.fbq('init', pixelId);
+    }
+
+    const testCode = storeSettings?.metaTestEventCode;
+    const options = testCode ? { test_event_code: testCode } : undefined;
+
+    w.fbq('track', 'PageView', options);
+    // Track stats on backend
+    if (product?.slug) {
+      fetch('/api/stats/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productSlug: product.slug, eventType: 'pageView' })
+      }).catch(() => {});
+    }
+
+    if (product) {
+      w.fbq('track', 'ViewContent', {
+        content_name: product.title,
+        content_ids: [product.slug || product.id || 'product'],
+        content_type: 'product',
+        value: product.price,
+        currency: storeSettings?.currency || 'DZD'
+      }, options);
+
+      if (product.slug) {
+        fetch('/api/stats/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productSlug: product.slug, eventType: 'viewContent' })
+        }).catch(() => {});
+      }
+    }
+  }, [product?.pixelId, storeSettings?.metaPixelId, storeSettings?.metaTestEventCode, storeSettings?.currency, product?.id]);
+
+  // Track Purchase event when successOrder is set (with eventID deduplication)
+  useEffect(() => {
+    if (successOrder && (window as any).fbq) {
+      const testCode = storeSettings?.metaTestEventCode;
+      const options = {
+        ...(testCode ? { test_event_code: testCode } : {}),
+        eventID: successOrder.id
+      };
+      (window as any).fbq('track', 'Purchase', {
+        value: successOrder.totalPrice,
+        currency: storeSettings?.currency || 'DZD',
+        content_name: successOrder.productName || product?.title,
+        content_ids: [successOrder.productSlug || product?.slug || 'product'],
+        content_type: 'product',
+        num_items: successOrder.quantity
+      }, options);
+    }
+  }, [successOrder, storeSettings?.currency]);
+
+  const handleFormInteraction = () => {
+    if (!(window as any)._checkoutTracked && (window as any).fbq) {
+      (window as any)._checkoutTracked = true;
+      const testCode = storeSettings?.metaTestEventCode;
+      const options = testCode ? { test_event_code: testCode } : undefined;
+      (window as any).fbq('track', 'InitiateCheckout', {
+        content_name: product?.title,
+        content_ids: [product?.slug || product?.id || 'product'],
+        content_type: 'product',
+        value: totalPrice,
+        currency: storeSettings?.currency || 'DZD',
+        num_items: quantity
+      }, options);
+
+      if (product?.slug) {
+        fetch('/api/stats/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productSlug: product.slug, eventType: 'initiateCheckout' })
+        }).catch(() => {});
+      }
+    }
+  };
+
+  const trackAddToCart = () => {
+    if ((window as any).fbq) {
+      const testCode = storeSettings?.metaTestEventCode;
+      const options = testCode ? { test_event_code: testCode } : undefined;
+      (window as any).fbq('track', 'AddToCart', {
+        content_name: product?.title,
+        content_ids: [product?.slug || product?.id || 'product'],
+        content_type: 'product',
+        value: totalPrice,
+        currency: storeSettings?.currency || 'DZD',
+        num_items: quantity
+      }, options);
+    }
+    if (product?.slug) {
+      fetch('/api/stats/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productSlug: product.slug, eventType: 'addToCart' })
+      }).catch(() => {});
+    }
+  };
+
+  const handleFormLead = () => {
+    if (!(window as any)._leadTracked && (window as any).fbq) {
+      (window as any)._leadTracked = true;
+      const testCode = storeSettings?.metaTestEventCode;
+      const options = testCode ? { test_event_code: testCode } : undefined;
+      (window as any).fbq('track', 'Lead', {
+        content_name: product?.title,
+        content_ids: [product?.slug || product?.id || 'product'],
+        content_type: 'product',
+        value: totalPrice,
+        currency: storeSettings?.currency || 'DZD',
+        num_items: quantity
+      }, options);
+
+      if (product?.slug) {
+        fetch('/api/stats/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productSlug: product.slug, eventType: 'lead' })
+        }).catch(() => {});
+      }
+    }
+  };
+
   const getSlugFromUrl = (): string | null => {
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     if (pathParts.length > 0) {
@@ -160,6 +309,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
   const totalPrice = (productPrice * quantity) + shippingCost;
 
   const scrollToForm = () => {
+    trackAddToCart();
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -218,19 +368,6 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
       const resData = await response.json();
       if (response.ok) {
         setSuccessOrder(resData.order);
-
-        // Meta Pixel: Purchase Event
-        if (typeof (window as any).fbq === 'function') {
-          (window as any).fbq('track', 'Purchase', {
-            value: totalPrice,
-            currency: 'DZD',
-            content_name: product?.title || 'Product',
-            content_ids: [product?.slug || 'unknown'],
-            content_type: 'product',
-            num_items: quantity
-          });
-        }
-
         // Clear form
         setName('');
         setPhone('');
@@ -713,7 +850,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
 
               {/* Form inputs */}
               <div className="md:col-span-7 bg-white text-slate-800 rounded-2xl p-5 md:p-8 shadow-lg">
-                <form onSubmit={handleSubmitOrder} className="space-y-4">
+                <form onSubmit={handleSubmitOrder} onFocus={handleFormInteraction} className="space-y-4">
                   
                   {/* Name field */}
                   <div className="space-y-1.5">
@@ -726,7 +863,10 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
                       required
                       placeholder="أدخل اسمك الكامل هنا"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (e.target.value.length > 2) handleFormLead();
+                      }}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
                     />
                   </div>
@@ -742,7 +882,10 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
                       required
                       placeholder="مثال: 06XXXXXXXX"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (e.target.value.length > 5) handleFormLead();
+                      }}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-mono font-semibold"
                       dir="ltr"
                     />
