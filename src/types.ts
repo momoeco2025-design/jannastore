@@ -106,7 +106,18 @@ export interface StoreSettings {
   storeName: string;
   storeSub: string;
   currency?: string;
+  logoUrl?: string;
+  coverUrl?: string;
+  heroBadge?: string;
+  heroTitle?: string;
+  heroSub?: string;
   tickerItems: string[];
+  feature1Title?: string;
+  feature1Desc?: string;
+  feature2Title?: string;
+  feature2Desc?: string;
+  feature3Title?: string;
+  feature3Desc?: string;
   socialLinks?: {
     facebook?: string;
     instagram?: string;

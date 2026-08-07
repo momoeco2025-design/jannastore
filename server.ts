@@ -24,14 +24,27 @@ const defaultStoreSettings: StoreSettings = {
   storeName: "جنة ستور | Janna Store 🛍️",
   storeSub: "متجركم المفضل للتسوق الإلكتروني في الجزائر 🇩🇿",
   currency: "DZD",
+  logoUrl: "",
+  coverUrl: "",
+  heroBadge: "كتالوج المنتجات الحصرية والعروض المميزة",
+  heroTitle: "تسوق أفضل المنتجات بأفضل الأسعار في الجزائر 🇩🇿",
+  heroSub: "جنة ستور هي وجهتك المفضلة للتسوق الإلكتروني 🛒",
   tickerItems: [
+    "🔥 أفضل المنتجات بأسعار ممتازة وجد مناسبة في الجزائر!",
     "🚚 توصيل سريع وآمن لباب المنزل متوفر لـ 58 ولاية جزائرية!",
     "⭐ جودة ممتازة وخامات أصلية ممتازة مختارة ومضمونة 100% من متجرنا",
     "💵 الدفع عند الاستلام - افحصي سلعتك وتأكدي منها بحرية تامة قبل الدفع",
     "🔄 الضمان الذهبي: استبدال مجاني أو استرجاع الأموال سهل وسريع خلال 7 أيام",
     "💥 أسعار مناسبة وجد تنافسية مع تخفيضات حصرية كبرى تصل إلى 40%",
     "📞 خدمة زبائن متميزة متوفرة هاتفياً لتأكيد طلبياتكم والإجابة على أي استفسار"
-  ]
+  ],
+  feature1Title: "توصيل سريع لـ 58 ولاية",
+  feature1Desc: "نصلك أينما كنت بالجزائر، للمنزل أو لمكتب التوصيل القريب منك.",
+  feature2Title: "معاينة وإفحاص قبل الدفع",
+  feature2Desc: "افحص طردك واستلم منتجك بثقة تامة ثم ادفع الثمن للموزع يداً بيد.",
+  feature3Title: "خدمة زبائن متابعة",
+  feature3Desc: "يتصل بك فريقنا الهاتفي لتأكيد العنوان والإجابة عن أي تساؤل.",
+  metaPixelId: "4470620526542545"
 };
 
 
@@ -179,6 +192,9 @@ async function getDB(): Promise<DBStructure> {
       }
       if (!parsed.storeSettings) {
         parsed.storeSettings = defaultStoreSettings;
+        updated = true;
+      } else if (!parsed.storeSettings.metaPixelId) {
+        parsed.storeSettings.metaPixelId = "4470620526542545";
         updated = true;
       }
       if (!parsed.products || parsed.products.length === 0) {
@@ -810,21 +826,35 @@ app.post("/api/upload", adminAuth, async (req: Request, res: Response) => {
   }
 
   try {
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      return res.status(500).json({ error: "إعدادات Cloudinary غير متوفرة. الرجاء إضافتها في الإعدادات (Secrets)." });
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+      // Upload to Cloudinary
+      const uploadResponse = await cloudinary.uploader.upload(imageBase64, {
+        folder: "jannastore_products",
+        resource_type: "image"
+      });
+      return res.json({ url: uploadResponse.secure_url });
     }
 
-    // Upload to Cloudinary
-    const uploadResponse = await cloudinary.uploader.upload(imageBase64, {
-      folder: "jannastore_products",
-      resource_type: "image"
-    });
-    
-    // Return the secure URL from Cloudinary
-    res.json({ url: uploadResponse.secure_url });
+    // Local file storage fallback
+    const matches = imageBase64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      if (imageBase64.startsWith("http") || imageBase64.startsWith("/uploads/")) {
+        return res.json({ url: imageBase64 });
+      }
+      return res.status(400).json({ error: "تنسيق الصورة غير صحيح (توقع Base64)." });
+    }
+
+    const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+    const buffer = Buffer.from(matches[2], "base64");
+    const uniqueName = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+    const filePath = path.join(UPLOADS_DIR, uniqueName);
+
+    fs.writeFileSync(filePath, buffer);
+    const localUrl = `/uploads/${uniqueName}`;
+    return res.json({ url: localUrl });
   } catch (error: any) {
-    console.error("Error saving uploaded image to Cloudinary:", error);
-    res.status(500).json({ error: "فشل رفع الصورة إلى Cloudinary.", details: error.message });
+    console.error("Error saving uploaded image:", error);
+    res.status(500).json({ error: "فشل رفع وحفظ الصورة.", details: error.message });
   }
 });
 
@@ -972,18 +1002,39 @@ app.get("/api/store-settings", async (req: Request, res: Response) => {
 
 // 15. Update Store Settings (Admin only)
 app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) => {
-  const { storeName, storeSub, currency, tickerItems, socialLinks, metaPixelId, metaAccessToken, metaTestEventCode, domain } = req.body;
-  if (typeof storeName !== "string" || typeof storeSub !== "string" || !Array.isArray(tickerItems)) {
+  const { 
+    storeName, storeSub, currency, logoUrl, coverUrl,
+    heroBadge, heroTitle, heroSub, tickerItems,
+    feature1Title, feature1Desc, feature2Title, feature2Desc, feature3Title, feature3Desc,
+    socialLinks, metaPixelId, metaAccessToken, metaTestEventCode, domain 
+  } = req.body;
+
+  if (typeof storeName !== "string" || typeof storeSub !== "string") {
     return res.status(400).json({ error: "البيانات المرسلة غير صالحة." });
   }
 
   const db = await getDB();
+  const filteredTickerItems = Array.isArray(tickerItems) 
+    ? tickerItems.filter((item: any) => typeof item === "string" && item.trim() !== "")
+    : (db.storeSettings?.tickerItems || defaultStoreSettings.tickerItems);
+
   db.storeSettings = {
     ...db.storeSettings,
     storeName,
     storeSub,
     currency: typeof currency === "string" && currency.trim() !== "" ? currency.trim().toUpperCase() : (db.storeSettings?.currency || "DZD"),
-    tickerItems: tickerItems.filter((item: any) => typeof item === "string" && item.trim() !== ""),
+    logoUrl: typeof logoUrl === "string" ? logoUrl.trim() : (db.storeSettings?.logoUrl || ""),
+    coverUrl: typeof coverUrl === "string" ? coverUrl.trim() : (db.storeSettings?.coverUrl || ""),
+    heroBadge: typeof heroBadge === "string" ? heroBadge.trim() : (db.storeSettings?.heroBadge || ""),
+    heroTitle: typeof heroTitle === "string" ? heroTitle.trim() : (db.storeSettings?.heroTitle || ""),
+    heroSub: typeof heroSub === "string" ? heroSub.trim() : (db.storeSettings?.heroSub || ""),
+    tickerItems: filteredTickerItems,
+    feature1Title: typeof feature1Title === "string" ? feature1Title.trim() : (db.storeSettings?.feature1Title || ""),
+    feature1Desc: typeof feature1Desc === "string" ? feature1Desc.trim() : (db.storeSettings?.feature1Desc || ""),
+    feature2Title: typeof feature2Title === "string" ? feature2Title.trim() : (db.storeSettings?.feature2Title || ""),
+    feature2Desc: typeof feature2Desc === "string" ? feature2Desc.trim() : (db.storeSettings?.feature2Desc || ""),
+    feature3Title: typeof feature3Title === "string" ? feature3Title.trim() : (db.storeSettings?.feature3Title || ""),
+    feature3Desc: typeof feature3Desc === "string" ? feature3Desc.trim() : (db.storeSettings?.feature3Desc || ""),
     socialLinks: socialLinks ? JSON.parse(JSON.stringify(socialLinks)) : undefined,
     metaPixelId: typeof metaPixelId === "string" ? metaPixelId.trim() : undefined,
     metaAccessToken: typeof metaAccessToken === "string" ? metaAccessToken.trim() : undefined,
@@ -996,8 +1047,8 @@ app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) =
     delete db.storeSettings.socialLinks;
   } else {
     Object.keys(db.storeSettings.socialLinks).forEach(key => {
-      if (db.storeSettings.socialLinks[key] === undefined) {
-        delete db.storeSettings.socialLinks[key];
+      if ((db.storeSettings.socialLinks as any)[key] === undefined) {
+        delete (db.storeSettings.socialLinks as any)[key];
       }
     });
   }
@@ -1007,7 +1058,7 @@ app.post("/api/store-settings", adminAuth, async (req: Request, res: Response) =
   if (!db.storeSettings.domain) delete db.storeSettings.domain;
 
   await saveDB(db);
-  res.json({ success: true, message: "تم تحديث إعدادات المتجر بنجاح!", storeSettings: db.storeSettings });
+  res.json({ success: true, message: "تم تحديث إعدادات المتجر والصفحة الرئيسية بنجاح!", storeSettings: db.storeSettings });
 });
 
 // 16. Test Pixel & Conversions API (Admin only)

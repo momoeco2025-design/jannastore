@@ -1,0 +1,381 @@
+import React, { useState, useEffect } from 'react';
+import { ProductData, StoreSettings } from '../types';
+import { 
+  ShoppingBag, ShoppingCart, Truck, ShieldCheck, Star, Sparkles, 
+  Search, ChevronLeft, Flame, Package, Phone, Check,
+  Facebook, Instagram, Music, Send, Lock, Zap
+} from 'lucide-react';
+import { motion } from 'motion/react';
+
+import jannaLogo from '../assets/images/janna_logo_1785583716049.jpg';
+import jannaCover from '../assets/images/janna_cover_1785583732181.jpg';
+
+interface StoreHomeProps {
+  onSelectProduct: (slug: string) => void;
+  onOpenAdmin: () => void;
+  isAdminLoggedIn: boolean;
+}
+
+export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedIn }: StoreHomeProps) {
+  const [products, setProducts] = useState<ProductData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchStoreSettings();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStoreSettings = async () => {
+    try {
+      const res = await fetch('/api/store-settings');
+      if (res.ok) {
+        const data = await res.json();
+        setStoreSettings(data);
+      }
+    } catch (err) {
+      console.error('Error fetching store settings:', err);
+    }
+  };
+
+  const filteredProducts = products.filter(p => 
+    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const defaultTickerItems = [
+    "🔥 أفضل المنتجات بأسعار ممتازة وجد مناسبة في الجزائر!",
+    "🚚 توصيل سريع وآمن لباب المنزل متوفر لـ 58 ولاية جزائرية!",
+    "⭐ جودة ممتازة وخامات أصلية ممتازة مختارة ومضمونة 100% من متجرنا",
+    "💵 الدفع عند الاستلام - افحصي سلعتك وتأكدي منها بحرية تامة قبل الدفع",
+    "🔄 الضمان الذهبي: استبدال مجاني أو استرجاع الأموال سهل وسريع خلال 7 أيام",
+    "💥 أسعار مناسبة وجد تنافسية مع تخفيضات حصرية كبرى تصل إلى 40%",
+    "📞 خدمة زبائن متميزة متوفرة هاتفياً لتأكيد طلبياتكم والإجابة على أي استفسار"
+  ];
+
+  const rawTickerItems = storeSettings?.tickerItems?.length ? storeSettings.tickerItems : defaultTickerItems;
+  // Duplicate ticker array to make infinite scrolling seamless
+  const tickerList = [...rawTickerItems, ...rawTickerItems, ...rawTickerItems];
+
+  const activeLogo = storeSettings?.logoUrl || jannaLogo;
+  const activeCover = storeSettings?.coverUrl || jannaCover;
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans" dir="rtl">
+      
+      {/* 1. Moving Breaking News Ticker (شريط خبر عاجل متحرك) */}
+      <div className="bg-gradient-to-r from-red-700 via-amber-600 to-red-800 text-white overflow-hidden whitespace-nowrap py-2.5 px-3 relative shadow-md border-b border-amber-400/30 flex items-center">
+        <div className="bg-red-950/90 text-amber-300 font-black text-xs px-3 py-1 rounded-xl flex items-center gap-1.5 z-20 shadow-sm shrink-0 border border-amber-400/40 ml-3">
+          <Flame size={15} className="text-amber-400 animate-pulse" />
+          <span>خبر عاجل 🔥</span>
+        </div>
+
+        <div className="overflow-hidden w-full relative flex items-center">
+          <motion.div 
+            className="flex shrink-0 w-max gap-8 items-center font-bold text-xs whitespace-nowrap"
+            animate={{ x: ["0%", "-50%"] }}
+            transition={{ repeat: Infinity, ease: "linear", duration: 30 }}
+          >
+            {tickerList.map((item, idx) => (
+              <span key={idx} className="flex items-center gap-3 text-amber-50">
+                <span>{item}</span>
+                <span className="text-amber-300 text-sm">✦</span>
+              </span>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* 2. Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm py-3 px-4 md:px-8 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-md border border-slate-100 bg-white flex items-center justify-center shrink-0">
+            <img 
+              src={activeLogo} 
+              alt="Logo" 
+              className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div>
+            <h1 className="font-black text-xl md:text-2xl bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent">
+              {storeSettings?.storeName || 'جنة ستور | Janna Store 🛍️'}
+            </h1>
+            <p className="text-[11px] text-slate-500 font-bold -mt-0.5">
+              {storeSettings?.storeSub || 'متجركم الأول للتسوق الإلكتروني في الجزائر 🇩🇿'}
+            </p>
+          </div>
+        </div>
+
+        {/* Header Social & Admin Actions */}
+        <div className="flex items-center gap-2">
+          {/* Social Links */}
+          <div className="hidden sm:flex items-center gap-1.5 border-l border-slate-200 pl-3 ml-2">
+            {storeSettings?.socialLinks?.facebook && (
+              <a href={storeSettings.socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition-colors">
+                <Facebook size={15} />
+              </a>
+            )}
+            {storeSettings?.socialLinks?.instagram && (
+              <a href={storeSettings.socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="p-2 bg-pink-50 text-pink-600 rounded-full hover:bg-pink-600 hover:text-white transition-colors">
+                <Instagram size={15} />
+              </a>
+            )}
+            {storeSettings?.socialLinks?.tiktok && (
+              <a href={storeSettings.socialLinks.tiktok} target="_blank" rel="noopener noreferrer" className="p-2 bg-zinc-100 text-zinc-800 rounded-full hover:bg-zinc-800 hover:text-white transition-colors">
+                <Music size={15} />
+              </a>
+            )}
+          </div>
+
+          <button 
+            onClick={onOpenAdmin}
+            className={`text-xs px-3.5 py-2 rounded-xl border transition-all font-bold flex items-center gap-1.5 cursor-pointer ${
+              isAdminLoggedIn 
+              ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' 
+              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Lock size={14} />
+            <span>{isAdminLoggedIn ? 'لوحة الإدارة' : 'دخول الأدمن'}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Store Content */}
+      <main className="flex-grow max-w-6xl mx-auto w-full px-4 md:px-8 py-8 space-y-10">
+        
+        {/* 3. Hero Section with Clear Store Cover Image Background */}
+        <section className="relative rounded-3xl overflow-hidden shadow-xl h-[280px] md:h-[340px] flex items-end justify-start border border-slate-200">
+          {/* Background Cover Image - Completely Clear and Prominent */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src={activeCover} 
+              alt="Store Cover" 
+              className="w-full h-full object-cover object-center"
+              referrerPolicy="no-referrer"
+            />
+            {/* Subtle Gradient strictly at the bottom for text contrast without covering the image */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent"></div>
+          </div>
+
+          {/* Hero Content - Clean 2 Lines at Bottom */}
+          <div className="relative z-10 p-5 md:p-8 text-white max-w-2xl space-y-1.5">
+            <h2 className="text-lg md:text-2xl font-black leading-snug text-white drop-shadow-md">
+              {storeSettings?.heroTitle || 'تسوق أفضل المنتجات بأفضل الأسعار في الجزائر 🇩🇿'}
+            </h2>
+
+            <p className="text-xs md:text-sm text-emerald-100 font-bold drop-shadow-sm">
+              {storeSettings?.heroSub || 'جنة ستور هي وجهتك المفضلة للتسوق الإلكتروني 🛒'}
+            </p>
+          </div>
+        </section>
+
+        {/* 4. Search & Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+          <div className="relative w-full sm:w-80">
+            <input 
+              type="text"
+              placeholder="ابحث عن منتج بالاسم..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <Search size={16} className="absolute right-3.5 top-3 text-slate-400" />
+          </div>
+
+          <div className="text-xs text-slate-500 font-bold text-center sm:text-left">
+            <span>عدد المنتجات المتاحة حالياً: </span>
+            <strong className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-sm">{filteredProducts.length}</strong>
+          </div>
+        </div>
+
+        {/* 5. Products Grid */}
+        {loading ? (
+          <div className="py-20 text-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <p className="text-slate-500 text-sm font-bold">جاري تحميل المنتجات المتاحة في المتجر...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-3">
+            <Package size={48} className="text-slate-300 mx-auto" />
+            <h3 className="text-lg font-bold text-slate-700">لم يتم العثور على أي منتج</h3>
+            <p className="text-xs text-slate-400">يرجى التأكد من كلمة البحث أو إضافة منتجات جديدة من لوحة الأدمن.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((p) => {
+              const coverImg = p.images?.find(i => i.isMain)?.url || p.images?.[0]?.url || p.coverUrl || activeLogo;
+              const discountPercent = p.oldPrice > p.price ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;
+              const productSlug = p.slug || p.id || 'product';
+
+              return (
+                <motion.div
+                  key={p.id || p.slug}
+                  whileHover={{ y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl border border-slate-100 flex flex-col justify-between transition-all group"
+                >
+                  <div>
+                    {/* Image Header with Badges */}
+                    <div className="relative aspect-4/3 overflow-hidden bg-slate-100 cursor-pointer" onClick={() => onSelectProduct(productSlug)}>
+                      <img 
+                        src={coverImg} 
+                        alt={p.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        referrerPolicy="no-referrer"
+                      />
+
+                      {/* Badges */}
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end z-10">
+                        {discountPercent > 0 && (
+                          <span className="bg-red-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md">
+                            تخفيض {discountPercent}%-
+                          </span>
+                        )}
+                        <span className="bg-slate-900/85 backdrop-blur-md text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                          <Flame size={12} className="text-amber-400" />
+                          <span>عرض محدود</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Product Body Details */}
+                    <div className="p-5 space-y-3">
+                      <div className="space-y-1">
+                        <h3 
+                          onClick={() => onSelectProduct(productSlug)}
+                          className="font-black text-lg text-slate-900 group-hover:text-emerald-700 transition-colors leading-snug cursor-pointer"
+                        >
+                          {p.title}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2">
+                          {p.subtitle || p.description}
+                        </p>
+                      </div>
+
+                      {/* Features tags */}
+                      {p.features && p.features.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {p.features.slice(0, 2).map((feat, idx) => (
+                            <span key={idx} className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              ✓ {feat.title}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pricing Footer & Order CTA Button */}
+                  <div className="p-5 pt-0 space-y-3 border-t border-slate-50 mt-2">
+                    <div className="flex justify-between items-baseline pt-3">
+                      <div className="space-x-2 space-x-reverse">
+                        <span className="text-2xl font-black text-emerald-700">{p.price} {storeSettings?.currency || 'دج'}</span>
+                        {p.oldPrice > p.price && (
+                          <span className="text-xs text-slate-400 line-through font-bold">{p.oldPrice} {storeSettings?.currency || 'دج'}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-1 rounded-md">
+                        الدفع عند الاستلام
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => onSelectProduct(productSlug)}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+                    >
+                      <ShoppingCart size={18} />
+                      <span>اشتري الآن (صفحة الهبوط)</span>
+                      <ChevronLeft size={16} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 6. Why Shop With Us Section (Customizable Features) */}
+        <section className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="text-center space-y-1">
+            <h3 className="text-xl font-black text-slate-900">لماذا يفضل القائمون بالتسوق الشراء من متجرنا؟</h3>
+            <p className="text-xs text-slate-500">نوفر لك تجربة تسوق موثوقة وسريعة بدون أي مخاطرة</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div className="p-5 bg-slate-50 rounded-2xl space-y-2 border border-slate-100">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto">
+                <Truck size={24} />
+              </div>
+              <h4 className="font-extrabold text-sm text-slate-800">
+                {storeSettings?.feature1Title || 'توصيل سريع لـ 58 ولاية'}
+              </h4>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {storeSettings?.feature1Desc || 'نصلك أينما كنت بالجزائر، للمنزل أو لمكتب التوصيل القريب منك.'}
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50 rounded-2xl space-y-2 border border-slate-100">
+              <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+                <ShieldCheck size={24} />
+              </div>
+              <h4 className="font-extrabold text-sm text-slate-800">
+                {storeSettings?.feature2Title || 'معاينة وإفحاص قبل الدفع'}
+              </h4>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {storeSettings?.feature2Desc || 'افحص طردك واستلم منتجك بثقة تامة ثم ادفع الثمن للموزع يداً بيد.'}
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50 rounded-2xl space-y-2 border border-slate-100">
+              <div className="w-12 h-12 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto">
+                <Phone size={24} />
+              </div>
+              <h4 className="font-extrabold text-sm text-slate-800">
+                {storeSettings?.feature3Title || 'خدمة زبائن متابعة'}
+              </h4>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {storeSettings?.feature3Desc || 'يتصل بك فريقنا الهاتفي لتأكيد العنوان والإجابة عن أي تساؤل.'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-slate-900 text-white py-8 border-t border-slate-800 mt-12">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-right">
+          <div>
+            <h4 className="font-black text-lg text-emerald-400">
+              {storeSettings?.storeName || 'جنة ستور | Janna Store'}
+            </h4>
+            <p className="text-xs text-slate-400">جميع الحقوق محفوظة © {new Date().getFullYear()}</p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span>تسوق آمن ومضمون 100% في الجزائر 🇩🇿</span>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  );
+}

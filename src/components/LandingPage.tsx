@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProductData, Wilaya, Order, StoreSettings } from '../types';
 import { ALGERIAN_WILAYAS } from './WilayaData';
 import { 
-  Facebook, Instagram, Music,
-  ShoppingCart, Star, ShieldCheck, Truck, Sparkles, RefreshCw, 
+  Facebook, Instagram, Music, Home,
+  ShoppingCart, ShoppingBag, Star, ShieldCheck, Truck, Sparkles, RefreshCw, 
   Wind, Layers, Package, Phone, User, MapPin, Send, Check, 
   ArrowRight, ChevronLeft, ChevronRight, Clock, Flame
 } from 'lucide-react';
@@ -13,11 +13,13 @@ import jannaLogo from '../assets/images/janna_logo_1785583716049.jpg';
 import jannaCover from '../assets/images/janna_cover_1785583732181.jpg';
 
 interface LandingPageProps {
+  key?: string;
   onOpenAdmin: () => void;
   isAdminLoggedIn: boolean;
+  onGoHome?: () => void;
 }
 
-export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPageProps) {
+export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: LandingPageProps) {
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
@@ -431,21 +433,37 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
       {/* Elegant Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-md py-3 px-4 md:px-8 flex justify-between items-center transition-all duration-300">
         <div className="flex items-center gap-2 flex-1 md:flex-none">
-          <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-emerald-100/50 border border-slate-100 bg-white flex items-center justify-center">
-            <img 
-              src={product.logoUrl || jannaLogo} 
-              alt="Store Logo" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div>
-            <span className="font-black text-lg md:text-xl tracking-tight bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent font-black">
-              {storeSettings?.storeName || "جنة ستور | Janna Store 🛍️"}
-            </span>
-            <span className="text-[10px] text-slate-500 font-bold block -mt-1">
-              {storeSettings?.storeSub || "متجركم المفضل للتسوق الإلكتروني في الجزائر 🇩🇿"}
-            </span>
+          {onGoHome && (
+            <button 
+              onClick={onGoHome}
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border border-emerald-500/30 px-3.5 py-2 rounded-xl font-black text-xs transition-all shadow-md hover:shadow-lg cursor-pointer ml-1 animate-pulse"
+              title="تصفح جميع المنتجات والعروض الحصرية في المتجر"
+            >
+              <ShoppingBag size={15} />
+              <span>🛍️ تصفح منتجات أخرى مميزة</span>
+            </button>
+          )}
+
+          <div 
+            onClick={onGoHome}
+            className={`flex items-center gap-2 ${onGoHome ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+          >
+            <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-emerald-100/50 border border-slate-100 bg-white flex items-center justify-center">
+              <img 
+                src={product.logoUrl || jannaLogo} 
+                alt="Store Logo" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div>
+              <span className="font-black text-lg md:text-xl tracking-tight bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent font-black">
+                {storeSettings?.storeName || "جنة ستور | Janna Store 🛍️"}
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold block -mt-1">
+                {storeSettings?.storeSub || "متجركم المفضل للتسوق الإلكتروني في الجزائر 🇩🇿"}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -548,39 +566,19 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
 
           {/* Scrolling Ticker Track */}
           <div className="flex-1 overflow-hidden relative h-full flex items-center bg-slate-900">
-            <div className="flex whitespace-nowrap gap-12 animate-ticker py-2 hover:[animation-play-state:paused] cursor-pointer">
-              {/* Set 1 */}
-              <div className="flex items-center gap-12 shrink-0">
-                {tickerItems.map((item, index) => (
-                  <span key={`ticker-1-${index}`} className="flex items-center gap-2 text-slate-100 hover:text-emerald-400 transition-colors">
-                    <span className="text-emerald-400 font-extrabold">✦</span>
-                    <span>{item}</span>
-                  </span>
-                ))}
-              </div>
-              {/* Set 2 (Duplicated for perfect infinite scroll loop) */}
-              <div className="flex items-center gap-12 shrink-0" aria-hidden="true">
-                {tickerItems.map((item, index) => (
-                  <span key={`ticker-2-${index}`} className="flex items-center gap-2 text-slate-100 hover:text-emerald-400 transition-colors">
-                    <span className="text-emerald-400 font-extrabold">✦</span>
-                    <span>{item}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
+            <motion.div 
+              className="flex shrink-0 w-max gap-12 items-center text-sm font-black whitespace-nowrap px-4"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ repeat: Infinity, ease: "linear", duration: 35 }}
+            >
+              {[...tickerItems, ...tickerItems].map((item, idx) => (
+                <span key={idx} className="flex items-center gap-3 text-slate-100 hover:text-emerald-400 transition-colors cursor-pointer">
+                  <span className="text-emerald-400 font-extrabold">✦</span>
+                  <span>{item}</span>
+                </span>
+              ))}
+            </motion.div>
           </div>
-
-          <style>{`
-            @keyframes ticker-scroll {
-              0% { transform: translateX(0); }
-              100% { transform: translateX(50%); }
-            }
-            .animate-ticker {
-              display: flex;
-              animation: ticker-scroll 45s linear infinite;
-              width: max-content;
-            }
-          `}</style>
         </div>
 
         
@@ -728,6 +726,231 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
           </div>
         </section>
 
+        {/* High Converting Checkout Form (Unified Single-Card Layout directly under Hero) */}
+        <section ref={formRef} id="checkout-section" className="scroll-mt-20">
+          <div className="bg-white rounded-3xl border-2 border-emerald-500 shadow-2xl p-5 md:p-8 space-y-6 relative overflow-hidden">
+            
+            {/* Header Badge & Title */}
+            <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white -mx-5 -mt-5 md:-mx-8 md:-mt-8 p-5 md:p-6 mb-2">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-700/80 text-emerald-100 text-xs px-3 py-1 rounded-full font-bold border border-emerald-500/30">
+                  <Package size={14} />
+                  <span>الشحن متوفر لجميع بلديات الجزائر 🇩🇿</span>
+                </span>
+                <span className="text-[11px] bg-amber-400 text-slate-900 font-black px-2.5 py-1 rounded-lg">
+                  الدفع عند الاستلام COD
+                </span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-black text-white leading-tight">
+                🛒 استمارة الطلب السريع
+              </h2>
+              <p className="text-xs text-emerald-100 mt-1">
+                من فضلك أَدخِل بياناتك في الأسفل، وسنتصل بك هاتفياً لتأكيد الطلب وشحن المنتجات لباب منزلك!
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmitOrder} onFocus={handleFormInteraction} className="space-y-4">
+              
+              {/* Name field */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <User size={15} className="text-emerald-600" />
+                  <span>الاسم الكامل (الاسم واللقب) <strong className="text-red-500">*</strong></span>
+                </label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="أدخل اسمك الكامل هنا"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (e.target.value.length > 2) handleFormLead();
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
+                />
+              </div>
+
+              {/* Phone field */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Phone size={15} className="text-emerald-600" />
+                  <span>رقم الهاتف <strong className="text-red-500">*</strong></span>
+                </label>
+                <input 
+                  type="tel"
+                  required
+                  placeholder="مثال: 06XXXXXXXX"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (e.target.value.length > 5) handleFormLead();
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-mono font-semibold"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Wilaya and Commune row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Wilaya select */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <MapPin size={15} className="text-emerald-600" />
+                    <span>الولاية <strong className="text-red-500">*</strong></span>
+                  </label>
+                  <select
+                    value={selectedWilayaNum}
+                    onChange={(e) => setSelectedWilayaNum(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
+                  >
+                    {wilayasList.filter(w => w.available).map(w => (
+                      <option key={w.num} value={w.num}>
+                        {String(w.num).padStart(2, '0')} - {w.nameAr}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Commune field */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <MapPin size={15} className="text-emerald-600" />
+                    <span>البلدية <strong className="text-red-500">*</strong></span>
+                  </label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="أدخل اسم البلدية"
+                    value={commune}
+                    onChange={(e) => setCommune(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Shipping option */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800">نوع التوصيل</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShippingType('home')}
+                    className={`py-3 px-4 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      shippingType === 'home'
+                        ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-sm ring-1 ring-emerald-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>توصيل للمنزل 🏠</span>
+                    <span className="text-[10px] text-slate-500 font-normal">لباب بيتك (+{selectedWilaya.shippingHome} دج)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShippingType('desk')}
+                    className={`py-3 px-4 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      shippingType === 'desk'
+                        ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-sm ring-1 ring-emerald-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>استلام من المكتب 🏢</span>
+                    <span className="text-[10px] text-slate-500 font-normal">توفير وتكلفة أقل (+{selectedWilaya.shippingDesk} دج)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quantity and notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                {/* Quantity counter */}
+                <div className="sm:col-span-1 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800">الكمية المطلوبة</label>
+                  <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                      className="px-3.5 py-2.5 hover:bg-slate-200 text-slate-700 font-black transition-colors cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="flex-grow text-center font-extrabold text-sm">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(q => q + 1)}
+                      className="px-3.5 py-2.5 hover:bg-slate-200 text-slate-700 font-black transition-colors cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800">ملاحظات (مقاس، لون، وقت الاتصال)</label>
+                  <input 
+                    type="text"
+                    placeholder="اختياري: مثلاً اتصلوا بي بعد العصر"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Pricing Invoice Summary directly inside form, under fields */}
+              <div className="bg-slate-900 text-white rounded-2xl p-4 md:p-5 space-y-2.5 mt-4 border border-slate-800 shadow-inner">
+                <div className="flex justify-between items-center text-xs text-slate-300 border-b border-slate-800 pb-2">
+                  <span>سعر المنتج ({quantity} قطعة):</span>
+                  <span className="font-bold text-white">{productPrice * quantity} دج</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs text-slate-300 border-b border-slate-800 pb-2">
+                  <span>
+                    تكلفة الشحن لولاية <strong className="text-amber-300">({selectedWilaya.nameAr})</strong>:
+                  </span>
+                  <span className="font-bold text-white">
+                    {shippingCost === 0 ? 'مجاني' : `${shippingCost} دج`}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-1">
+                  <span className="font-black text-sm text-amber-400">السعر الإجمالي للدفع عند الاستلام:</span>
+                  <span className="font-black text-2xl text-amber-400">{totalPrice} دج</span>
+                </div>
+              </div>
+
+              {/* Error feedback */}
+              {errorMsg && (
+                <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-xs font-bold text-center">
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+
+              {/* High pulsing checkout button right underneath price breakdown */}
+              <button
+                type="submit"
+                disabled={submitting}
+                className={`w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:bg-slate-400 active:scale-[0.98] text-white font-black text-lg py-4 rounded-2xl shadow-xl shadow-emerald-600/30 transition-all duration-200 flex items-center justify-center gap-2 mt-4 cursor-pointer relative overflow-hidden`}
+              >
+                {submitting ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Send size={20} className="animate-bounce" />
+                    <span>أكّدي طلبك الآن (الدفع عند الاستلام)</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[10px] pt-1">
+                <ShieldCheck size={13} className="text-emerald-600" />
+                <span>جميع بياناتك الشخصية مشفرة ومحمية بخصوصية تامة</span>
+              </div>
+            </form>
+
+          </div>
+        </section>
+
         {/* Product In-depth Details & Features Section */}
         <section className="space-y-6">
           <div className="text-center space-y-2">
@@ -788,245 +1011,6 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn }: LandingPag
                     <p className="text-slate-400">الدفع نقداً عند استلام المنتج</p>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* High Converting Checkout Form (Algier Store Style) */}
-        <section ref={formRef} id="checkout-section" className="scroll-mt-24">
-          <div className="bg-gradient-to-br from-emerald-800 to-teal-900 rounded-3xl text-white overflow-hidden shadow-2xl relative">
-            
-            {/* Background design accents */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-700/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl -ml-20 -mb-20"></div>
-
-            <div className="p-6 md:p-10 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              
-              {/* Form text description */}
-              <div className="md:col-span-5 space-y-6">
-                <div className="inline-flex items-center gap-2 bg-emerald-700/60 text-emerald-200 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-600/30">
-                  <Package size={14} />
-                  <span>الشحن متوفر لجميع بلديات الجزائر 🇩🇿</span>
-                </div>
-                
-                <div className="space-y-3">
-                  <h2 className="text-2xl md:text-3xl font-black leading-tight text-white">
-                    استمارة الطلب السريع والسهل
-                  </h2>
-                  <p className="text-emerald-100 text-sm leading-relaxed">
-                    من فضلك املأ معلوماتك بدقة، وسنقوم بالاتصال بك هاتفياً في غضون ساعات قليلة لتأكيد طلبك وشحن المنتج إليك مباشرة!
-                  </p>
-                </div>
-
-                {/* Total dynamic pricing block */}
-                <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-2xl p-5 space-y-3">
-                  <span className="text-xs text-emerald-300 block">فاتورة الطلب التقديرية</span>
-                  
-                  <div className="flex justify-between items-center text-sm border-b border-emerald-800/50 pb-2">
-                    <span className="text-emerald-200">سعر المنتج ({quantity} قطعة):</span>
-                    <span className="font-bold text-white">{productPrice * quantity} دج</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-sm border-b border-emerald-800/50 pb-2">
-                    <span className="text-emerald-200">
-                      تكلفة الشحن لولاية <strong className="text-yellow-300">({selectedWilaya.nameAr})</strong>:
-                    </span>
-                    <span className="font-bold text-white">
-                      {shippingCost === 0 ? 'مجاني' : `${shippingCost} دج`}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="font-extrabold text-base text-yellow-300">السعر الإجمالي للدفع عند الاستلام:</span>
-                    <span className="font-black text-2xl text-yellow-300">{totalPrice} دج</span>
-                  </div>
-
-                  <span className="text-[10px] text-emerald-300 block text-center pt-2 italic">
-                    ⚠️ لن تدفع أي سنت الآن! الدفع يكون يداً بيد بعد استلام منتجك وتفقده.
-                  </span>
-                </div>
-              </div>
-
-              {/* Form inputs */}
-              <div className="md:col-span-7 bg-white text-slate-800 rounded-2xl p-5 md:p-8 shadow-lg">
-                <form onSubmit={handleSubmitOrder} onFocus={handleFormInteraction} className="space-y-4">
-                  
-                  {/* Name field */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <User size={14} className="text-emerald-600" />
-                      <span>الاسم الكامل (الاسم واللقب) <strong className="text-red-500">*</strong></span>
-                    </label>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="أدخل اسمك الكامل هنا"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (e.target.value.length > 2) handleFormLead();
-                      }}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
-                    />
-                  </div>
-
-                  {/* Phone field */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <Phone size={14} className="text-emerald-600" />
-                      <span>رقم الهاتف <strong className="text-red-500">*</strong></span>
-                    </label>
-                    <input 
-                      type="tel"
-                      required
-                      placeholder="مثال: 06XXXXXXXX"
-                      value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value);
-                        if (e.target.value.length > 5) handleFormLead();
-                      }}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-mono font-semibold"
-                      dir="ltr"
-                    />
-                  </div>
-
-                  {/* Wilaya and Commune row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Wilaya select */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <MapPin size={14} className="text-emerald-600" />
-                        <span>الولاية <strong className="text-red-500">*</strong></span>
-                      </label>
-                      <select
-                        value={selectedWilayaNum}
-                        onChange={(e) => setSelectedWilayaNum(Number(e.target.value))}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
-                      >
-                        {wilayasList.filter(w => w.available).map(w => (
-                          <option key={w.num} value={w.num}>
-                            {String(w.num).padStart(2, '0')} - {w.nameAr}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Commune field */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <MapPin size={14} className="text-emerald-600" />
-                        <span>البلدية <strong className="text-red-500">*</strong></span>
-                      </label>
-                      <input 
-                        type="text"
-                        required
-                        placeholder="أدخل اسم البلدية"
-                        value={commune}
-                        onChange={(e) => setCommune(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Shipping option */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">نوع التوصيل</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShippingType('home')}
-                        className={`py-3 px-4 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                          shippingType === 'home'
-                            ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-sm'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span>توصيل للمنزل 🏠</span>
-                        <span className="text-[10px] text-slate-500 font-normal">توصيل لباب بيتك (+{selectedWilaya.shippingHome} دج)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShippingType('desk')}
-                        className={`py-3 px-4 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                          shippingType === 'desk'
-                            ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-sm'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span>استلام من المكتب 🏢</span>
-                        <span className="text-[10px] text-slate-500 font-normal">توفر وقت وتكلفة أقل (+{selectedWilaya.shippingDesk} دج)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quantity and notes */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-                    
-                    {/* Quantity counter */}
-                    <div className="sm:col-span-1 space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700">الكمية المطلوبة</label>
-                      <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                          className="px-3 py-2.5 hover:bg-slate-200 text-slate-600 font-black transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="flex-grow text-center font-extrabold text-sm">{quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(q => q + 1)}
-                          className="px-3 py-2.5 hover:bg-slate-200 text-slate-600 font-black transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700">ملاحظات (مقاس، لون، وقت الاتصال)</label>
-                      <input 
-                        type="text"
-                        placeholder="اختياري: مثلاً اتصلوا بي بعد العصر"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:bg-white transition-all font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Error feedback */}
-                  {errorMsg && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-xs font-bold text-center">
-                      ⚠️ {errorMsg}
-                    </div>
-                  )}
-
-                  {/* High pulsing checkout button */}
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className={`w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-400 active:scale-[0.98] text-white font-black text-lg py-4 rounded-xl shadow-xl shadow-orange-500/20 transition-all duration-200 flex items-center justify-center gap-2 mt-4 cursor-pointer relative overflow-hidden`}
-                  >
-                    {submitting ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <Send size={20} className="animate-bounce" />
-                        <span>أكّدي طلبك الآن (الدفع عند الاستلام)</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[10px] mt-2">
-                    <ShieldCheck size={12} className="text-emerald-600" />
-                    <span>جميع بياناتك الشخصية مشفرة ومحمية بخصوصية تامة</span>
-                  </div>
-                </form>
               </div>
             </div>
           </div>

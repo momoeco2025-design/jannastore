@@ -113,6 +113,105 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
 
   const [testPurchaseLoading, setTestPurchaseLoading] = useState(false);
   const [retryQueueLoading, setRetryQueueLoading] = useState(false);
+  const [newTickerInput, setNewTickerInput] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminToken
+          },
+          body: JSON.stringify({ imageBase64: base64String, fileName: file.name })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStoreSettings(prev => prev ? { ...prev, logoUrl: data.url } : null);
+        } else {
+          alert('فشل رفع شعار المتجر.');
+        }
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminToken
+          },
+          body: JSON.stringify({ imageBase64: base64String, fileName: file.name })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStoreSettings(prev => prev ? { ...prev, coverUrl: data.url } : null);
+        } else {
+          alert('فشل رفع صورة الغلاف.');
+        }
+        setUploadingCover(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleAddTickerItem = () => {
+    if (!newTickerInput.trim() || !storeSettings) return;
+    const current = storeSettings.tickerItems || [];
+    setStoreSettings({
+      ...storeSettings,
+      tickerItems: [...current, newTickerInput.trim()]
+    });
+    setNewTickerInput('');
+  };
+
+  const handleRemoveTickerItem = (index: number) => {
+    if (!storeSettings) return;
+    const current = storeSettings.tickerItems || [];
+    setStoreSettings({
+      ...storeSettings,
+      tickerItems: current.filter((_, idx) => idx !== index)
+    });
+  };
+
+  const handleAddPresetTickerItems = () => {
+    if (!storeSettings) return;
+    const presets = [
+      "🔥 أفضل المنتجات بأسعار ممتازة وجد مناسبة في الجزائر!",
+      "🚚 توصيل سريع وآمن لباب المنزل متوفر لـ 58 ولاية جزائرية!",
+      "⭐ جودة ممتازة وخامات أصلية ممتازة مختارة ومضمونة 100% من متجرنا",
+      "💵 الدفع عند الاستلام - افحصي سلعتك وتأكدي منها بحرية تامة قبل الدفع",
+      "🔄 الضمان الذهبي: استبدال مجاني أو استرجاع الأموال سهل وسريع خلال 7 أيام",
+      "💥 أسعار مناسبة وجد تنافسية مع تخفيضات حصرية كبرى تصل إلى 40%",
+      "📞 خدمة زبائن متميزة متوفرة هاتفياً لتأكيد طلبياتكم والإجابة على أي استفسار"
+    ];
+    setStoreSettings({
+      ...storeSettings,
+      tickerItems: presets
+    });
+  };
 
   const handleProcessRetryQueue = async () => {
     setRetryQueueLoading(true);
@@ -2693,40 +2792,287 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 text-right">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-8 text-right">
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-800">اسم المتجر الأساسي</label>
-                  <input
-                    type="text"
-                    value={storeSettings.storeName}
-                    onChange={(e) => setStoreSettings({...storeSettings, storeName: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+              {/* Section 1: Basic Info & Logo & Cover Images */}
+              <div className="space-y-4">
+                <h4 className="font-extrabold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <span>🖼️ معلومات، اللوغو وصورة الغلاف (Cover) بالصفحة الرئيسية</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800">اسم المتجر الأساسي</label>
+                    <input
+                      type="text"
+                      value={storeSettings.storeName}
+                      onChange={(e) => setStoreSettings({...storeSettings, storeName: e.target.value})}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800">وصف المتجر (في الهيدر)</label>
+                    <input
+                      type="text"
+                      value={storeSettings.storeSub}
+                      onChange={(e) => setStoreSettings({...storeSettings, storeSub: e.target.value})}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800">رمز العملة (Currency)</label>
+                    <input
+                      type="text"
+                      value={storeSettings.currency || 'DZD'}
+                      onChange={(e) => setStoreSettings({...storeSettings, currency: e.target.value})}
+                      placeholder="DZD"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      dir="ltr"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-800">وصف المتجر (الشريط العلوي)</label>
-                  <input
-                    type="text"
-                    value={storeSettings.storeSub}
-                    onChange={(e) => setStoreSettings({...storeSettings, storeSub: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-800">العملة (Currency)</label>
-                  <input
-                    type="text"
-                    value={storeSettings.currency || 'DZD'}
-                    onChange={(e) => setStoreSettings({...storeSettings, currency: e.target.value})}
-                    placeholder="DZD"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    dir="ltr"
-                  />
+
+                {/* Logo & Cover Upload Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  
+                  {/* Logo Image */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <label className="text-xs font-black text-slate-800 block">شعار المتجر (Logo)</label>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 bg-white rounded-xl border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                        {storeSettings.logoUrl ? (
+                          <img src={storeSettings.logoUrl} alt="Logo Preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-bold">لا يوجد</span>
+                        )}
+                      </div>
+                      <div className="space-y-2 flex-grow">
+                        <input
+                          type="text"
+                          placeholder="رابط الصورة (URL)..."
+                          value={storeSettings.logoUrl || ''}
+                          onChange={(e) => setStoreSettings({...storeSettings, logoUrl: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-left"
+                          dir="ltr"
+                        />
+                        <label className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all">
+                          <span>{uploadingLogo ? 'جاري الرفع...' : '📁 اختيار لوغو من الجهاز'}</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cover Image */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <label className="text-xs font-black text-slate-800 block">صورة الغلاف (Hero Cover Image)</label>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-20 h-14 bg-white rounded-xl border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                        {storeSettings.coverUrl ? (
+                          <img src={storeSettings.coverUrl} alt="Cover Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-bold">افتراضي</span>
+                        )}
+                      </div>
+                      <div className="space-y-2 flex-grow">
+                        <input
+                          type="text"
+                          placeholder="رابط صورة الغلاف (URL)..."
+                          value={storeSettings.coverUrl || ''}
+                          onChange={(e) => setStoreSettings({...storeSettings, coverUrl: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-left"
+                          dir="ltr"
+                        />
+                        <label className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all">
+                          <span>{uploadingCover ? 'جاري الرفع...' : '🖼️ رفع صورة كفر جديدة'}</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={uploadingCover} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
+              {/* Section 2: Hero Over-Cover Content */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="font-extrabold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <span>✍️ النصوص المكتوبة فوق الغلاف (Hero Section)</span>
+                </h4>
+
+                <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800 block">الشارة الترحيبية (Hero Badge)</label>
+                    <input
+                      type="text"
+                      value={storeSettings.heroBadge || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, heroBadge: e.target.value})}
+                      placeholder="مثال: كتالوج المنتجات الحصرية والعروض المميزة"
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800 block">العنوان الرئيسي فوق الكفر (Hero Title)</label>
+                    <input
+                      type="text"
+                      value={storeSettings.heroTitle || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, heroTitle: e.target.value})}
+                      placeholder="مثال: تسوق أفضل المنتجات العصرية بأفضل الأسعار في الجزائر 🇩🇿"
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800 block">الوصف التفصيلي فوق الكفر (Hero Subtitle)</label>
+                    <textarea
+                      value={storeSettings.heroSub || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, heroSub: e.target.value})}
+                      rows={2}
+                      placeholder="مثال: اختر منتجك المفضل للوصول لصفحة العرض والطلب..."
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Moving Breaking News Ticker (شريط الأخبار المتحرك) */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                    <span className="text-red-600">🚨</span>
+                    <span>شريط الأخبار والعبارات التسويقية المتحركة (Ticker Bar)</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleAddPresetTickerItems}
+                    className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>⚡ تعبئة الجمل التسويقية الجاهزة</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTickerInput}
+                      onChange={(e) => setNewTickerInput(e.target.value)}
+                      placeholder="اكتب جملة تسويقية جديدة هنا (مثال: أفضل المنتجات بأسعار مليحة بزاف)..."
+                      className="flex-grow px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTickerItem();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTickerItem}
+                      className="bg-red-600 hover:bg-red-700 text-white font-black text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm shrink-0"
+                    >
+                      إضافة للشريط
+                    </button>
+                  </div>
+
+                  {/* List of current ticker items */}
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[11px] font-bold text-slate-600 block">الجمل المتحركة الحالية في الشريط ({storeSettings.tickerItems?.length || 0}):</span>
+                    {(!storeSettings.tickerItems || storeSettings.tickerItems.length === 0) ? (
+                      <p className="text-xs text-slate-400 font-bold bg-white p-3 rounded-xl border text-center">لا توجد أي جملة في شريط الأخبار حالياً.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-52 overflow-y-auto pl-1">
+                        {storeSettings.tickerItems.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs text-xs font-bold text-slate-800">
+                            <span className="flex items-center gap-2">
+                              <span className="text-amber-500 font-black">#{idx + 1}</span>
+                              <span>{item}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTickerItem(idx)}
+                              className="text-red-500 hover:text-red-700 font-black text-xs bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 cursor-pointer transition-colors"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Bottom Features (مميزات المتجر) */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="font-extrabold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <span>⭐ مميزات المتجر في أسفل الصفحة الرئيسية (Bottom Features)</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Feature 1 */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <span className="text-xs font-black text-emerald-700 block">الميزة الأولى (مثلا الشحن)</span>
+                    <input
+                      type="text"
+                      placeholder="عنوان الميزة الأولى..."
+                      value={storeSettings.feature1Title || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature1Title: e.target.value})}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold"
+                    />
+                    <textarea
+                      placeholder="وصف الميزة الأولى..."
+                      value={storeSettings.feature1Desc || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature1Desc: e.target.value})}
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  {/* Feature 2 */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <span className="text-xs font-black text-amber-700 block">الميزة الثانية (مثلا معاينة وفحص)</span>
+                    <input
+                      type="text"
+                      placeholder="عنوان الميزة الثانية..."
+                      value={storeSettings.feature2Title || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature2Title: e.target.value})}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold"
+                    />
+                    <textarea
+                      placeholder="وصف الميزة الثانية..."
+                      value={storeSettings.feature2Desc || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature2Desc: e.target.value})}
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  {/* Feature 3 */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <span className="text-xs font-black text-sky-700 block">الميزة الثالثة (مثلا خدمة الزبائن)</span>
+                    <input
+                      type="text"
+                      placeholder="عنوان الميزة الثالثة..."
+                      value={storeSettings.feature3Title || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature3Title: e.target.value})}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold"
+                    />
+                    <textarea
+                      placeholder="وصف الميزة الثالثة..."
+                      value={storeSettings.feature3Desc || ''}
+                      onChange={(e) => setStoreSettings({...storeSettings, feature3Desc: e.target.value})}
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Social Media Links */}
               <div className="pt-4 border-t border-slate-100">
                 <h4 className="font-extrabold text-sm text-slate-900 mb-4">روابط التواصل الاجتماعي (اختياري)</h4>
                 

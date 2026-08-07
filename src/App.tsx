@@ -1,17 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage';
+import StoreHome from './components/StoreHome';
 import AdminPanel from './components/AdminPanel';
 import { Lock, X, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const getSlugFromLocation = (): string | null => {
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  if (pathParts.length > 0) {
+    if (pathParts[0] === 'p' && pathParts[1]) {
+      return decodeURIComponent(pathParts[1]);
+    }
+    if (pathParts[0] !== 'admin' && pathParts[0] !== 'store') {
+      return decodeURIComponent(pathParts[0]);
+    }
+  }
+  const searchParams = new URLSearchParams(window.location.search);
+  const pParam = searchParams.get('product') || searchParams.get('p');
+  if (pParam) return decodeURIComponent(pParam);
+
+  return null;
+};
+
 export default function App() {
-  // Navigation & Authentication states
+  // Navigation & Routing state
+  const [currentSlug, setCurrentSlug] = useState<string | null>(getSlugFromLocation());
+
+  // Authentication states
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [adminToken, setAdminToken] = useState('');
   const [passcode, setPasscode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentSlug(getSlugFromLocation());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleSelectProduct = (slug: string) => {
+    window.history.pushState({}, '', `/${slug}`);
+    setCurrentSlug(slug);
+    window.scrollTo(0, 0);
+  };
+
+  const handleGoHome = () => {
+    window.history.pushState({}, '', '/');
+    setCurrentSlug(null);
+    window.scrollTo(0, 0);
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +91,17 @@ export default function App() {
           adminToken={adminToken}
           onLogout={handleLogout}
         />
-      ) : (
+      ) : currentSlug ? (
         <LandingPage 
+          key={currentSlug}
           onOpenAdmin={handleOpenAdminPortal} 
+          isAdminLoggedIn={adminToken === 'ADMINMASTER'}
+          onGoHome={handleGoHome}
+        />
+      ) : (
+        <StoreHome 
+          onSelectProduct={handleSelectProduct}
+          onOpenAdmin={handleOpenAdminPortal}
           isAdminLoggedIn={adminToken === 'ADMINMASTER'}
         />
       )}
