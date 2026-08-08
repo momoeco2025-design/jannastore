@@ -475,40 +475,30 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
       </div>
 
       {/* Elegant Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-md py-3 px-4 md:px-8 flex justify-between items-center transition-all duration-300">
-        <div className="flex items-center gap-2 flex-1 md:flex-none">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm py-2 px-3 md:px-6 flex justify-between items-center transition-all duration-300">
+        <div className="flex items-center gap-2">
+          <div 
+            onClick={onGoHome}
+            className={`w-8 h-8 md:w-9 md:h-9 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center shrink-0 ${onGoHome ? 'cursor-pointer hover:opacity-90' : ''}`}
+          >
+            <img 
+              src={product.logoUrl || jannaLogo} 
+              alt="Store Logo" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
           {onGoHome && (
             <button 
               onClick={onGoHome}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border border-emerald-500/30 px-3.5 py-2 rounded-xl font-black text-xs transition-all shadow-md hover:shadow-lg cursor-pointer ml-1 animate-pulse"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black px-2.5 py-1.5 rounded-lg text-[11px] md:text-xs transition-all shadow-xs cursor-pointer"
               title="تصفح جميع المنتجات والعروض الحصرية في المتجر"
             >
-              <ShoppingBag size={15} />
-              <span>🛍️ تصفح منتجات أخرى مميزة</span>
+              <ShoppingBag size={14} />
+              <span>تصفح منتجات أخرى مميزة</span>
             </button>
           )}
-
-          <div 
-            onClick={onGoHome}
-            className={`flex items-center gap-2 ${onGoHome ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
-          >
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-emerald-100/50 border border-slate-100 bg-white flex items-center justify-center">
-              <img 
-                src={product.logoUrl || jannaLogo} 
-                alt="Store Logo" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div>
-              <span className="font-black text-lg md:text-xl tracking-tight bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent font-black">
-                {storeSettings?.storeName || "جنة ستور | Janna Store 🛍️"}
-              </span>
-              <span className="text-[10px] text-slate-500 font-bold block -mt-1">
-                {storeSettings?.storeSub || "متجركم المفضل للتسوق الإلكتروني في الجزائر 🇩🇿"}
-              </span>
-            </div>
-          </div>
         </div>
 
         
