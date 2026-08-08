@@ -671,45 +671,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
               </div>
             )}
 
-            {/* Colors Selector directly under Image Gallery */}
-            {product.colors && product.colors.length > 0 && (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    <Palette size={16} className="text-emerald-600" />
-                    <span>اللون المختار (الألوان المتوفرة):</span>
-                  </span>
-                  <span className="text-xs font-black text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
-                    {selectedColor || product.colors[0].name}
-                  </span>
-                </div>
-                
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  {product.colors.map(col => {
-                    const isSelected = selectedColor === col.name || (!selectedColor && col === product.colors![0]);
-                    return (
-                      <button
-                        key={col.id || col.name}
-                        type="button"
-                        onClick={() => handleColorSelect(col.name)}
-                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
-                          isSelected 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105 ring-2 ring-emerald-500/30' 
-                            : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span 
-                          className="w-4 h-4 rounded-full border border-black/20 shadow-inner inline-block shrink-0" 
-                          style={{ backgroundColor: col.hex || '#000' }} 
-                        />
-                        <span>{col.name}</span>
-                        {isSelected && <Check size={14} className="text-emerald-400" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Left side: Product Info & Dynamic Highlights */}
