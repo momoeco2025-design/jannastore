@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProductData, StoreSettings } from '../types';
 import { 
   ShoppingBag, ShoppingCart, Truck, ShieldCheck, Star, Sparkles, 
-  Search, ChevronLeft, Flame, Package, Phone, Check,
+  Search, ChevronLeft, ChevronUp, ChevronDown, Flame, Package, Phone, Check,
   Facebook, Instagram, Music, Send, Lock, Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -14,9 +14,10 @@ interface StoreHomeProps {
   onSelectProduct: (slug: string) => void;
   onOpenAdmin: () => void;
   isAdminLoggedIn: boolean;
+  adminToken?: string;
 }
 
-export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedIn }: StoreHomeProps) {
+export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedIn, adminToken }: StoreHomeProps) {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +40,41 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMoveProduct = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === products.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const updatedProducts = [...products];
+    const temp = updatedProducts[index];
+    updatedProducts[index] = updatedProducts[newIndex];
+    updatedProducts[newIndex] = temp;
+
+    setProducts(updatedProducts);
+
+    try {
+      const productIds = updatedProducts.map(p => p.id || p.slug);
+      const res = await fetch('/api/products/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken || 'ADMINMASTER'
+        },
+        body: JSON.stringify({ productIds })
+      });
+      if (res.ok) {
+        fetchProducts();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'فشل تغيير ترتيب المنتجات.');
+        fetchProducts();
+      }
+    } catch (err) {
+      alert('فشل الاتصال بالخادم.');
+      fetchProducts();
     }
   };
 
@@ -206,6 +242,22 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
           </div>
         </div>
 
+        {/* Admin Reorder Banner Notification */}
+        {isAdminLoggedIn && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5 font-black text-xs md:text-sm">
+              <Sparkles size={20} className="text-amber-600 animate-bounce shrink-0" />
+              <span>وضع الأدمن مفعل: يمكنك تغيير ترتيب ظهور المنتجات مباشرة من هنا بالضغط على الأسهم ⬆️ ⬇️ الموجودة أعلى كل منتج!</span>
+            </div>
+            <button
+              onClick={onOpenAdmin}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
+            >
+              الرجوع للوحة التحكم
+            </button>
+          </div>
+        )}
+
         {/* 5. Products Grid */}
         {loading ? (
           <div className="py-20 text-center space-y-4">
@@ -220,7 +272,7 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((p) => {
+            {filteredProducts.map((p, index) => {
               const coverImg = p.images?.find(i => i.isMain)?.url || p.images?.[0]?.url || p.coverUrl || activeLogo;
               const discountPercent = p.oldPrice > p.price ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;
               const productSlug = p.slug || p.id || 'product';
@@ -230,8 +282,46 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
                   key={p.id || p.slug}
                   whileHover={{ y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl border border-slate-100 flex flex-col justify-between transition-all group"
+                  className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl border border-slate-100 flex flex-col justify-between transition-all group relative"
                 >
+                  {/* Admin Direct Product Reorder Control Bar */}
+                  {isAdminLoggedIn && (
+                    <div className="bg-amber-500 text-slate-950 px-4 py-2.5 flex items-center justify-between font-black text-xs border-b border-amber-600 shadow-sm z-20">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles size={15} className="text-slate-900" />
+                        <span>ترتيب المنتج: #{index + 1}</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveProduct(index, 'up');
+                          }}
+                          disabled={index === 0}
+                          className="bg-slate-900 text-white hover:bg-emerald-600 disabled:opacity-30 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-bold shadow-xs text-[11px]"
+                          title="رفع المنتج للأعلى ليظهر قبل المنتجات الأخرى"
+                        >
+                          <ChevronUp size={16} />
+                          <span>أعلى</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveProduct(index, 'down');
+                          }}
+                          disabled={index === filteredProducts.length - 1}
+                          className="bg-slate-900 text-white hover:bg-emerald-600 disabled:opacity-30 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-bold shadow-xs text-[11px]"
+                          title="إنزال المنتج للأسفل"
+                        >
+                          <ChevronDown size={16} />
+                          <span>أسفل</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     {/* Image Header with Badges */}
                     <div className="relative aspect-4/3 overflow-hidden bg-slate-100 cursor-pointer" onClick={() => onSelectProduct(productSlug)}>

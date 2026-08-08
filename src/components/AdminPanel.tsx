@@ -5,7 +5,8 @@ import {
   Lock, LogOut, Settings, Plus, Minus, Star, Trash2, Edit2, Check,
   TrendingUp, Calendar, MapPin, Phone, User, Info, DollarSign,
   Search, Filter, Download, ShoppingCart, RefreshCw, Package, ArrowRight,
-  Upload, Wand2, Truck, Send, Sparkles, ShoppingBag, Copy, RotateCcw
+  Upload, Wand2, Truck, Send, Sparkles, ShoppingBag, Copy, RotateCcw,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -689,6 +690,41 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
       }
     } catch (err) {
       alert('فشل الاتصال بالخادم.');
+    }
+  };
+
+  const handleMoveProduct = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === products.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const updatedProducts = [...products];
+    const temp = updatedProducts[index];
+    updatedProducts[index] = updatedProducts[newIndex];
+    updatedProducts[newIndex] = temp;
+
+    setProducts(updatedProducts);
+
+    try {
+      const productIds = updatedProducts.map(p => p.id || p.slug);
+      const res = await fetch('/api/products/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        },
+        body: JSON.stringify({ productIds })
+      });
+      if (res.ok) {
+        fetchProducts();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'فشل تغيير ترتيب المنتجات.');
+        fetchProducts();
+      }
+    } catch (err) {
+      alert('فشل الاتصال بالخادم.');
+      fetchProducts();
     }
   };
 
@@ -1491,6 +1527,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                     <table className="w-full text-sm text-right text-slate-500" dir="rtl">
                       <thead className="text-xs text-slate-700 bg-slate-50 font-black">
                         <tr>
+                          <th scope="col" className="px-6 py-4 text-center">ترتيب العرض ⬆️⬇️</th>
                           <th scope="col" className="px-6 py-4 text-right">المنتج والصفحة</th>
                           <th scope="col" className="px-6 py-4 text-center">رابط صفحة الهبوط</th>
                           <th scope="col" className="px-6 py-4 text-center">الصفحة الرئيسية 🏠</th>
@@ -1501,8 +1538,31 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {products.map((p) => (
+                        {products.map((p, index) => (
                           <tr key={p.id || p.slug} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveProduct(index, 'up')}
+                                  disabled={index === 0}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 font-bold transition-all cursor-pointer"
+                                  title="رفع المنتج للأعلى"
+                                >
+                                  <ChevronUp size={16} />
+                                </button>
+                                <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 py-1 rounded-md min-w-[24px] text-center">{index + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveProduct(index, 'down')}
+                                  disabled={index === products.length - 1}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 font-bold transition-all cursor-pointer"
+                                  title="إنزال المنتج للأسفل"
+                                >
+                                  <ChevronDown size={16} />
+                                </button>
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center gap-3">
                                 {p.images && p.images.find(img => img.isMain) ? (

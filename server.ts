@@ -547,6 +547,40 @@ app.post("/api/products/set-default", adminAuth, async (req: Request, res: Respo
   res.json({ success: true, message: "تم تعيين الصفحة كصفحة رئيسية بنجاح!", defaultProductSlug: slug });
 });
 
+// New: Reorder products list for display
+app.post("/api/products/reorder", adminAuth, async (req: Request, res: Response) => {
+  const { productIds } = req.body;
+  if (!Array.isArray(productIds)) {
+    return res.status(400).json({ error: "قائمة ترتيب المنتجات مطلوبة." });
+  }
+  const db = await getDB();
+  if (!db.products || db.products.length === 0) {
+    return res.status(400).json({ error: "لا توجد منتجات لتنظيم ترتيبها." });
+  }
+
+  const orderedProducts: any[] = [];
+  productIds.forEach((id: string) => {
+    const p = db.products.find(prod => (prod.id && prod.id === id) || prod.slug === id);
+    if (p) {
+      orderedProducts.push(p);
+    }
+  });
+
+  db.products.forEach(p => {
+    if (!orderedProducts.some(op => (op.id && p.id && op.id === p.id) || op.slug === p.slug)) {
+      orderedProducts.push(p);
+    }
+  });
+
+  db.products = orderedProducts;
+  if (db.products.length > 0) {
+    db.product = db.products[0];
+  }
+
+  await saveDB(db);
+  res.json({ success: true, message: "تم تحديث ترتيب المنتجات بنجاح!", products: db.products });
+});
+
 // 2c. Get Product By Slug (Public)
 app.get("/api/products/:slug", async (req: Request, res: Response) => {
   const db = await getDB();

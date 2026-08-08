@@ -103,6 +103,7 @@ export default function App() {
           onSelectProduct={handleSelectProduct}
           onOpenAdmin={handleOpenAdminPortal}
           isAdminLoggedIn={adminToken === 'ADMINMASTER'}
+          adminToken={adminToken}
         />
       )}
 

@@ -43,8 +43,22 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
   // Countdown timer (e.g. 1 hour, 34 mins, 12 secs, resetting or starting high)
   const [timeLeft, setTimeLeft] = useState({ hours: 1, minutes: 42, seconds: 28 });
   const [stockCount, setStockCount] = useState(12);
+  const [isFormInView, setIsFormInView] = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver to hide mobile floating CTA when order form is visible
+  useEffect(() => {
+    if (!formRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsFormInView(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(formRef.current);
+    return () => observer.disconnect();
+  }, [loading]);
 
   const fetchStoreSettings = async () => {
     try {
@@ -897,7 +911,35 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                 </div>
               </div>
 
-              {/* Pricing Invoice Summary directly inside form, under fields */}
+              {/* Error feedback */}
+              {errorMsg && (
+                <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-xs font-bold text-center">
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+
+              {/* High pulsing checkout button directly underneath input fields */}
+              <button
+                type="submit"
+                disabled={submitting}
+                className={`w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:bg-slate-400 active:scale-[0.98] text-white font-black text-lg py-4 rounded-2xl shadow-xl shadow-emerald-600/30 transition-all duration-200 flex items-center justify-center gap-2 mt-4 cursor-pointer relative overflow-hidden`}
+              >
+                {submitting ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Send size={20} className="animate-bounce" />
+                    <span>أكّدي طلبك الآن (الدفع عند الاستلام)</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[10px] pt-1">
+                <ShieldCheck size={13} className="text-emerald-600" />
+                <span>جميع بياناتك الشخصية مشفرة ومحمية بخصوصية تامة</span>
+              </div>
+
+              {/* Pricing Invoice Summary directly at the bottom of the form */}
               <div className="bg-slate-900 text-white rounded-2xl p-4 md:p-5 space-y-2.5 mt-4 border border-slate-800 shadow-inner">
                 <div className="flex justify-between items-center text-xs text-slate-300 border-b border-slate-800 pb-2">
                   <span>سعر المنتج ({quantity} قطعة):</span>
@@ -917,34 +959,6 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                   <span className="font-black text-sm text-amber-400">السعر الإجمالي للدفع عند الاستلام:</span>
                   <span className="font-black text-2xl text-amber-400">{totalPrice} دج</span>
                 </div>
-              </div>
-
-              {/* Error feedback */}
-              {errorMsg && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-xs font-bold text-center">
-                  ⚠️ {errorMsg}
-                </div>
-              )}
-
-              {/* High pulsing checkout button right underneath price breakdown */}
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:bg-slate-400 active:scale-[0.98] text-white font-black text-lg py-4 rounded-2xl shadow-xl shadow-emerald-600/30 transition-all duration-200 flex items-center justify-center gap-2 mt-4 cursor-pointer relative overflow-hidden`}
-              >
-                {submitting ? (
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <Send size={20} className="animate-bounce" />
-                    <span>أكّدي طلبك الآن (الدفع عند الاستلام)</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[10px] pt-1">
-                <ShieldCheck size={13} className="text-emerald-600" />
-                <span>جميع بياناتك الشخصية مشفرة ومحمية بخصوصية تامة</span>
               </div>
             </form>
 
@@ -1059,16 +1073,18 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
         </section>
       </main>
 
-      {/* Floating CTA for Mobile Screens */}
-      <div className="sm:hidden fixed bottom-4 left-4 right-4 z-30">
-        <button 
-          onClick={scrollToForm}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm py-3.5 rounded-full shadow-lg shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all"
-        >
-          <ShoppingCart size={18} />
-          <span>أطلبي المنتج الآن والدفع عند الاستلام</span>
-        </button>
-      </div>
+      {/* Floating CTA for Mobile Screens - Automatically hidden when order form is in view */}
+      {!isFormInView && (
+        <div className="sm:hidden fixed bottom-4 left-4 right-4 z-30 transition-all duration-300">
+          <button 
+            onClick={scrollToForm}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm py-3.5 rounded-full shadow-lg shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <ShoppingCart size={18} />
+            <span>أطلبي المنتج الآن والدفع عند الاستلام</span>
+          </button>
+        </div>
+      )}
 
       {/* Modern Algerian COD Style Footer */}
       
@@ -1098,26 +1114,40 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
               </div>
 
               {/* Order quick summary details */}
-              <div className="bg-slate-50 rounded-2xl p-4 text-right space-y-2 text-xs">
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <span className="text-slate-400">رقم طلبك الفريد:</span>
+              <div className="bg-slate-50 rounded-2xl p-4 text-right space-y-2.5 text-xs border border-slate-100">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">رقم طلبك الفريد:</span>
                   <span className="font-bold text-slate-900 font-mono">{successOrder.id}</span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <span className="text-slate-400">الاسم الكامل:</span>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">الاسم الكامل:</span>
                   <span className="font-bold text-slate-900">{successOrder.customerName}</span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <span className="text-slate-400">رقم الهاتف:</span>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">رقم الهاتف:</span>
                   <span className="font-bold text-slate-900 font-mono">{successOrder.phone}</span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <span className="text-slate-400">الولاية والبلدية:</span>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">الولاية والبلدية:</span>
                   <span className="font-bold text-slate-900">{successOrder.wilayaName} - {successOrder.commune}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">مجموع الفاتورة الإجمالي:</span>
-                  <span className="font-black text-base text-emerald-600">{successOrder.totalPrice} دج</span>
+
+                {/* Price Breakdown Details */}
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">سعر المنتج ({successOrder.quantity} قطعة):</span>
+                  <span className="font-bold text-slate-900 font-mono">
+                    {(successOrder.totalPrice - (successOrder.shippingPrice || 0))} دج
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">تكلفة الشحن:</span>
+                  <span className="font-bold text-slate-900">
+                    {successOrder.shippingPrice === 0 ? 'مجاني' : `${successOrder.shippingPrice || 0} دج`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-1 text-sm bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="font-extrabold text-emerald-900">السعر الإجمالي للدفع عند الاستلام:</span>
+                  <span className="font-black text-lg text-emerald-700">{successOrder.totalPrice} دج</span>
                 </div>
               </div>
 
