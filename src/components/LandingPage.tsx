@@ -466,7 +466,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
       ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-[#dcecdb] text-slate-800 flex flex-col font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
       
       {/* Dynamic Promo Bar */}
       <div className="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white text-center py-2 px-4 text-sm font-bold shadow-sm flex items-center justify-center gap-2 animate-pulse">
@@ -577,45 +577,6 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
       {/* Main Container */}
       <main className="flex-grow max-w-5xl mx-auto w-full px-4 md:px-6 py-6 md:py-10 space-y-8">
         
-        {/* Product Cover Banner */}
-        <div className="relative w-full rounded-2xl md:rounded-3xl overflow-hidden shadow-lg border border-slate-100 bg-white">
-          <img 
-            src={product.coverUrl || jannaCover} 
-            alt="Product Cover Banner" 
-            className="w-full h-auto object-cover max-h-[380px]"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Premium Urgent News Ticker (شريط الأخبار والمميزات المتحرك) */}
-        <div className="bg-slate-900 text-slate-100 flex items-center h-12 overflow-hidden select-none relative z-30 text-sm md:text-[15px] font-black shadow-inner rounded-2xl md:rounded-3xl border border-slate-800">
-          {/* Right Label (Fixed like Breaking News) */}
-          <div className="bg-red-600 text-white px-3 sm:px-4 h-full flex items-center gap-2 shrink-0 z-20 font-black shadow-[4px_0_15px_rgba(0,0,0,0.5)] relative">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-            </span>
-            <span className="whitespace-nowrap">عاجل ومميز 🔥</span>
-          </div>
-
-          {/* Scrolling Ticker Track */}
-          <div className="flex-1 overflow-hidden relative h-full flex items-center bg-slate-900">
-            <motion.div 
-              className="flex shrink-0 w-max gap-12 items-center text-sm font-black whitespace-nowrap px-4"
-              animate={{ x: ["0%", "-50%"] }}
-              transition={{ repeat: Infinity, ease: "linear", duration: 35 }}
-            >
-              {[...tickerItems, ...tickerItems].map((item, idx) => (
-                <span key={idx} className="flex items-center gap-3 text-slate-100 hover:text-emerald-400 transition-colors cursor-pointer">
-                  <span className="text-emerald-400 font-extrabold">✦</span>
-                  <span>{item}</span>
-                </span>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-
-        
         {/* Product Hero Section */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100">
           
@@ -674,91 +635,70 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
 
           </div>
 
-          {/* Left side: Product Info & Dynamic Highlights */}
-          <div className="md:col-span-6 flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              {/* Reviews rating summary */}
-              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 w-fit px-3 py-1 rounded-full text-xs font-semibold">
-                <div className="flex items-center text-amber-500">
-                  <Star size={14} className="fill-amber-500" />
-                </div>
-                <span>4.9 / 5.0 نجوم (بناءً على {product.reviews.length} تقييم حقيقي)</span>
+          {/* Left side: Product Info & Title & Price */}
+          <div className="md:col-span-6 flex flex-col justify-center space-y-5">
+            {/* Reviews rating summary */}
+            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 w-fit px-3 py-1 rounded-full text-xs font-semibold">
+              <div className="flex items-center text-amber-500">
+                <Star size={14} className="fill-amber-500" />
               </div>
+              <span>4.9 / 5.0 نجوم (بناءً على {product.reviews.length} تقييم حقيقي)</span>
+            </div>
 
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
-                {product.title}
-              </h1>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+              {product.title}
+            </h1>
 
-              <p className="text-lg text-emerald-600 font-extrabold flex items-center gap-1.5">
-                <Sparkles size={18} className="animate-spin text-amber-500" />
-                <span>{product.subtitle}</span>
-              </p>
-
-              {/* Price section */}
-              <div className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center border border-slate-100">
-                <div>
-                  <span className="text-xs text-slate-500 block">السعر الحالي الحصري</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-emerald-600">{product.price} دج</span>
+            {/* Price section */}
+            <div className="bg-emerald-50/80 rounded-2xl p-4 flex justify-between items-center border border-emerald-100">
+              <div>
+                <span className="text-xs text-slate-500 block font-bold">السعر الحالي:</span>
+                <div className="flex items-baseline gap-2.5">
+                  <span className="text-3xl font-black text-emerald-700">{product.price} دج</span>
+                  {product.oldPrice && (
                     <span className="text-sm text-slate-400 line-through font-semibold">{product.oldPrice} دج</span>
-                  </div>
+                  )}
                 </div>
+              </div>
+              {product.oldPrice && product.oldPrice > product.price && (
                 <div className="text-right">
-                  <span className="bg-red-100 text-red-700 text-xs font-bold py-1 px-2.5 rounded-lg block">توفير {product.oldPrice - product.price} دج!</span>
-                  <span className="text-[10px] text-slate-400 block mt-1">الدفع عند الاستلام (COD)</span>
+                  <span className="bg-red-100 text-red-700 text-xs font-black py-1 px-2.5 rounded-lg block">توفير {product.oldPrice - product.price} دج!</span>
                 </div>
-              </div>
-
-              {/* Stock status & Urgent Countdown */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-red-50 rounded-2xl p-3 border border-red-100 flex items-center gap-3">
-                  <div className="bg-red-600 text-white p-2 rounded-xl">
-                    <Clock size={18} className="animate-pulse" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">العرض ينتهي في:</span>
-                    <span className="font-mono text-xs font-black text-red-700">
-                      {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 rounded-2xl p-3 border border-amber-100 flex items-center gap-3">
-                  <div className="bg-amber-500 text-white p-2 rounded-xl">
-                    <Package size={18} className="animate-bounce" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">المخزون المتبقي:</span>
-                    <span className="font-bold text-xs text-amber-800">{stockCount} قطعة فقط!</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Quick Guarantees */}
-            <div className="space-y-2.5 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2.5 text-xs font-medium text-slate-700">
-                <Truck size={16} className="text-emerald-600" />
-                <span>توصيل سريع وباب المنزل متوفر لـ 58 ولاية</span>
+            {/* Product Photos Showcase Grid */}
+            {product.images && product.images.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-emerald-600" />
+                  <span>صور وتفاصيل إضافية للمنتج (انقر على الصور للتكبير):</span>
+                </span>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {product.images.map((img, idx) => (
+                    <div 
+                      key={img.id || idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`relative aspect-square rounded-xl overflow-hidden bg-slate-100 border-2 cursor-pointer transition-all hover:scale-105 shadow-xs ${
+                        activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-500/30' : 'border-slate-200/80 hover:border-emerald-400'
+                      }`}
+                    >
+                      <img 
+                        src={img.url} 
+                        alt={img.colorName || product.title} 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      {img.colorName && (
+                        <span className="absolute bottom-0 inset-x-0 bg-slate-900/70 backdrop-blur-xs text-white text-[9px] font-bold py-0.5 px-1 text-center truncate">
+                          {img.colorName}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-2.5 text-xs font-medium text-slate-700">
-                <ShieldCheck size={16} className="text-emerald-600" />
-                <span>الضمان الذهبي: استبدال مجاني أو استرجاع الأموال إن لم يعجبك</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-xs font-medium text-slate-700">
-                <RefreshCw size={16} className="text-emerald-600 animate-spin" style={{ animationDuration: '8s' }} />
-                <span>الدفع آمن 100% فقط عند استلامك للمنتج وتفقده</span>
-              </div>
-            </div>
-
-            {/* Primary Action Button */}
-            <button 
-              onClick={scrollToForm}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-lg py-4 rounded-2xl shadow-xl shadow-emerald-100 transition-all duration-200 flex items-center justify-center gap-3 group mt-4 animate-bounce"
-            >
-              <ShoppingCart size={22} className="group-hover:translate-x-1 transition-transform" />
-              <span>أطلبي الآن - الدفع عند الاستلام</span>
-            </button>
+            )}
           </div>
         </section>
 
