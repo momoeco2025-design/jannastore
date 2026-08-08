@@ -577,12 +577,12 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
       {/* Main Container */}
       <main className="flex-grow max-w-5xl mx-auto w-full px-4 md:px-6 py-6 md:py-10 space-y-8">
         
-        {/* Product Hero Section */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100">
+        {/* Product Hero Section (Cleaned up: Images -> Title -> Price) */}
+        <section className="bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100 space-y-5">
           
-          {/* Right side: Image Gallery */}
-          <div className="md:col-span-6 space-y-4">
-            <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 shadow-inner group">
+          {/* Main Image & Sub Images */}
+          <div className="space-y-3">
+            <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 shadow-inner group max-w-xl mx-auto">
               <img 
                 src={mainImage} 
                 alt={product.title} 
@@ -607,23 +607,17 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                   </button>
                 </>
               )}
-
-              {/* Badges */}
-              <div className="absolute top-4 right-4 flex flex-col gap-2">
-                <span className="bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg">تخفيض 40% 🔥</span>
-                <span className="bg-amber-500 text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg">الأكثر مبيعاً 🏆</span>
-              </div>
             </div>
 
-            {/* Thumbnails */}
+            {/* Sub-images / Thumbnails */}
             {product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto py-1 scrollbar-thin">
+              <div className="flex gap-2 overflow-x-auto py-1 scrollbar-thin justify-center">
                 {product.images.map((img, idx) => (
                   <button
-                    key={img.id}
+                    key={img.id || idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-20 h-20 rounded-xl overflow-hidden bg-slate-50 border-2 transition-all duration-200 flex-shrink-0 ${
-                      activeImageIndex === idx ? 'border-emerald-600 shadow-md shadow-emerald-50' : 'border-slate-100 opacity-70 hover:opacity-100'
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-50 border-2 transition-all duration-200 flex-shrink-0 cursor-pointer ${
+                      activeImageIndex === idx ? 'border-emerald-600 shadow-md ring-2 ring-emerald-500/20' : 'border-slate-200 opacity-80 hover:opacity-100'
                     }`}
                   >
                     <img src={img.url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -631,30 +625,19 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                 ))}
               </div>
             )}
-
-
           </div>
 
-          {/* Left side: Product Info & Title & Price */}
-          <div className="md:col-span-6 flex flex-col justify-center space-y-5">
-            {/* Reviews rating summary */}
-            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 w-fit px-3 py-1 rounded-full text-xs font-semibold">
-              <div className="flex items-center text-amber-500">
-                <Star size={14} className="fill-amber-500" />
-              </div>
-              <span>4.9 / 5.0 نجوم (بناءً على {product.reviews.length} تقييم حقيقي)</span>
-            </div>
-
-            <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+          {/* Product Title & Price directly under images */}
+          <div className="space-y-3 border-t border-slate-100 pt-4 max-w-xl mx-auto">
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 leading-tight">
               {product.title}
             </h1>
 
-            {/* Price section */}
-            <div className="bg-emerald-50/80 rounded-2xl p-4 flex justify-between items-center border border-emerald-100">
+            <div className="bg-emerald-50/90 rounded-2xl p-4 flex justify-between items-center border border-emerald-200/80">
               <div>
                 <span className="text-xs text-slate-500 block font-bold">السعر الحالي:</span>
                 <div className="flex items-baseline gap-2.5">
-                  <span className="text-3xl font-black text-emerald-700">{product.price} دج</span>
+                  <span className="text-2xl md:text-3xl font-black text-emerald-700">{product.price} دج</span>
                   {product.oldPrice && (
                     <span className="text-sm text-slate-400 line-through font-semibold">{product.oldPrice} دج</span>
                   )}
@@ -662,43 +645,12 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
               </div>
               {product.oldPrice && product.oldPrice > product.price && (
                 <div className="text-right">
-                  <span className="bg-red-100 text-red-700 text-xs font-black py-1 px-2.5 rounded-lg block">توفير {product.oldPrice - product.price} دج!</span>
+                  <span className="bg-red-100 text-red-700 text-xs font-black py-1 px-2.5 rounded-lg block">
+                    توفير {product.oldPrice - product.price} دج!
+                  </span>
                 </div>
               )}
             </div>
-
-            {/* Product Photos Showcase Grid */}
-            {product.images && product.images.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-emerald-600" />
-                  <span>صور وتفاصيل إضافية للمنتج (انقر على الصور للتكبير):</span>
-                </span>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {product.images.map((img, idx) => (
-                    <div 
-                      key={img.id || idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`relative aspect-square rounded-xl overflow-hidden bg-slate-100 border-2 cursor-pointer transition-all hover:scale-105 shadow-xs ${
-                        activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-500/30' : 'border-slate-200/80 hover:border-emerald-400'
-                      }`}
-                    >
-                      <img 
-                        src={img.url} 
-                        alt={img.colorName || product.title} 
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      {img.colorName && (
-                        <span className="absolute bottom-0 inset-x-0 bg-slate-900/70 backdrop-blur-xs text-white text-[9px] font-bold py-0.5 px-1 text-center truncate">
-                          {img.colorName}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </section>
 
