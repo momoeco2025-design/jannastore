@@ -1,14 +1,164 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ProductData, StoreSettings } from '../types';
 import { 
   ShoppingBag, ShoppingCart, Truck, ShieldCheck, Star, Sparkles, 
   Search, ChevronLeft, ChevronUp, ChevronDown, Flame, Package, Phone, Check,
   Facebook, Instagram, Music, Send, Lock, Zap
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 import jannaLogo from '../assets/images/janna_logo_1785583716049.jpg';
 import jannaCover from '../assets/images/janna_cover_1785583732181.jpg';
+
+interface ProductCardImageProps {
+  product: ProductData;
+  coverImg: string;
+  discountPercent: number;
+  onSelectProduct: (slug: string) => void;
+}
+
+function ProductCardImage({ product, coverImg, discountPercent, onSelectProduct }: ProductCardImageProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Extract unique product image URLs for slideshow (strictly excluding logo and store cover)
+  const imageList = React.useMemo(() => {
+    const list: string[] = [];
+    
+    // First, collect all actual product images from product.images
+    if (product.images && product.images.length > 0) {
+      product.images.forEach(img => {
+        if (img.url && !list.includes(img.url)) {
+          // Exclude logo and general store cover images
+          if (
+            img.url !== jannaLogo && 
+            img.url !== jannaCover && 
+            !img.url.includes('janna_logo') && 
+            !img.url.includes('janna_cover')
+          ) {
+            list.push(img.url);
+          }
+        }
+      });
+    }
+
+    // If list is empty, fallback to coverImg/coverUrl ONLY if they are not store logo or cover banner
+    if (list.length === 0) {
+      const candidates = [coverImg, product.coverUrl].filter(Boolean);
+      for (const url of candidates) {
+        if (
+          url && 
+          url !== jannaLogo && 
+          url !== jannaCover && 
+          !url.includes('janna_logo') && 
+          !url.includes('janna_cover') &&
+          !list.includes(url)
+        ) {
+          list.push(url);
+        }
+      }
+    }
+
+    // Absolute fallback if still empty
+    if (list.length === 0 && coverImg) {
+      list.push(coverImg);
+    }
+
+    return list;
+  }, [product.images, product.coverUrl, coverImg]);
+
+  // Track if card is in viewport (only cycle images when product is visible to user)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Timer: Exactly 10 seconds (10000ms) interval for changing product images
+  useEffect(() => {
+    if (!isInView || imageList.length <= 1) return;
+
+    const timer = setTimeout(() => {
+      setCurrentIndex(prev => (prev + 1) % imageList.length);
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [isInView, currentIndex, imageList]);
+
+  const productSlug = product.slug || product.id || 'product';
+
+  return (
+    <div 
+      ref={containerRef}
+      className="relative aspect-[3/4.25] sm:aspect-[1/1.05] overflow-hidden bg-slate-100 cursor-pointer group/img" 
+      onClick={() => onSelectProduct(productSlug)}
+    >
+      <AnimatePresence mode="wait">
+        <motion.img 
+          key={imageList[currentIndex] || coverImg}
+          src={imageList[currentIndex] || coverImg} 
+          alt={product.title} 
+          initial={{ opacity: 0.85 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0.85 }}
+          transition={{ duration: 0.4 }}
+          className="w-full h-full object-cover brightness-[1.02] contrast-[1.06] saturate-[1.12] group-hover/img:scale-110 group-hover/img:brightness-105 group-hover/img:contrast-[1.08] transition-all duration-500 ease-out"
+          referrerPolicy="no-referrer"
+        />
+      </AnimatePresence>
+
+      {/* Image Pagination Indicators if multiple images */}
+      {imageList.length > 1 && (
+        <div className="absolute bottom-12 inset-x-0 z-10 flex justify-center gap-1.5 pointer-events-none">
+          {imageList.map((_, idx) => (
+            <span 
+              key={idx}
+              className={`h-1.5 rounded-full transition-all duration-300 shadow-xs ${
+                currentIndex === idx 
+                  ? 'w-5 bg-emerald-400 border border-emerald-200 shadow-sm' 
+                  : 'w-1.5 bg-white/60 backdrop-blur-xs'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Soft Gradient Overlay at bottom of image for readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-black/10 opacity-80 group-hover/img:opacity-95 transition-opacity duration-300 pointer-events-none" />
+
+      {/* Top Badges */}
+      <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end z-10">
+        {discountPercent > 0 && (
+          <span className="bg-red-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md animate-pulse">
+            تخفيض {discountPercent}%-
+          </span>
+        )}
+        <span className="bg-slate-900/85 backdrop-blur-md text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm border border-slate-700/50">
+          <Flame size={12} className="text-amber-400" />
+          <span>عرض محدود</span>
+        </span>
+      </div>
+
+      {/* Price Tag Directly on Image */}
+      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2 bg-emerald-600/95 backdrop-blur-md text-white px-3.5 py-1.5 rounded-xl shadow-xl border border-emerald-400/40">
+        <span className="text-lg md:text-xl font-black">{product.price} دج</span>
+        {product.oldPrice > product.price && (
+          <span className="text-xs text-emerald-200 line-through font-bold opacity-90">{product.oldPrice} دج</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface StoreHomeProps {
   onSelectProduct: (slug: string) => void;
@@ -113,25 +263,25 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
   const activeCover = storeSettings?.coverUrl || jannaCover;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans" dir="rtl">
+    <div className="min-h-screen bg-[#dcecdb] text-slate-800 flex flex-col font-sans" dir="rtl">
       
-      {/* 1. Moving Breaking News Ticker (شريط خبر عاجل متحرك) */}
-      <div className="bg-gradient-to-r from-red-700 via-amber-600 to-red-800 text-white overflow-hidden whitespace-nowrap py-2.5 px-3 relative shadow-md border-b border-amber-400/30 flex items-center">
-        <div className="bg-red-950/90 text-amber-300 font-black text-xs px-3 py-1 rounded-xl flex items-center gap-1.5 z-20 shadow-sm shrink-0 border border-amber-400/40 ml-3">
+      {/* 1. Moving Breaking News Ticker (شريط خبر عاجل متحرك باللون الأخضر الفستقي Vert Pistache) */}
+      <div className="bg-[#9ec899] text-emerald-950 overflow-hidden whitespace-nowrap py-2.5 px-3 relative shadow-sm border-b border-emerald-300/60 flex items-center">
+        <div className="bg-emerald-900 text-amber-300 font-black text-xs px-3 py-1 rounded-xl flex items-center gap-1.5 z-20 shadow-xs shrink-0 border border-emerald-700 ml-3">
           <Flame size={15} className="text-amber-400 animate-pulse" />
           <span>خبر عاجل 🔥</span>
         </div>
 
         <div className="overflow-hidden w-full relative flex items-center">
           <motion.div 
-            className="flex shrink-0 w-max gap-8 items-center font-bold text-xs whitespace-nowrap"
+            className="flex shrink-0 w-max gap-8 items-center font-black text-xs whitespace-nowrap"
             animate={{ x: ["0%", "-50%"] }}
             transition={{ repeat: Infinity, ease: "linear", duration: 30 }}
           >
             {tickerList.map((item, idx) => (
-              <span key={idx} className="flex items-center gap-3 text-amber-50">
+              <span key={idx} className="flex items-center gap-3 text-emerald-950">
                 <span>{item}</span>
-                <span className="text-amber-300 text-sm">✦</span>
+                <span className="text-emerald-700 text-sm font-extrabold">✦</span>
               </span>
             ))}
           </motion.div>
@@ -322,79 +472,50 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
                     </div>
                   )}
 
-                  <div>
-                    {/* Image Header with Badges */}
-                    <div className="relative aspect-4/3 overflow-hidden bg-slate-100 cursor-pointer" onClick={() => onSelectProduct(productSlug)}>
-                      <img 
-                        src={coverImg} 
-                        alt={p.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        referrerPolicy="no-referrer"
+                  <div className="flex flex-col h-full justify-between">
+                    <div>
+                      {/* Image Header with Automatic Slideshow, Filters & Price Overlay */}
+                      <ProductCardImage 
+                        product={p}
+                        coverImg={coverImg}
+                        discountPercent={discountPercent}
+                        onSelectProduct={onSelectProduct}
                       />
 
-                      {/* Badges */}
-                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end z-10">
-                        {discountPercent > 0 && (
-                          <span className="bg-red-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md">
-                            تخفيض {discountPercent}%-
-                          </span>
-                        )}
-                        <span className="bg-slate-900/85 backdrop-blur-md text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
-                          <Flame size={12} className="text-amber-400" />
-                          <span>عرض محدود</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Product Body Details */}
-                    <div className="p-5 space-y-3">
-                      <div className="space-y-1">
+                      {/* Product Body Details (Text strictly at bottom) */}
+                      <div className="p-4 space-y-2">
                         <h3 
                           onClick={() => onSelectProduct(productSlug)}
                           className="font-black text-lg text-slate-900 group-hover:text-emerald-700 transition-colors leading-snug cursor-pointer"
                         >
                           {p.title}
                         </h3>
-                        <p className="text-xs text-slate-500 font-medium line-clamp-2">
-                          {p.subtitle || p.description}
-                        </p>
-                      </div>
 
-                      {/* Features tags */}
-                      {p.features && p.features.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {p.features.slice(0, 2).map((feat, idx) => (
-                            <span key={idx} className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                              ✓ {feat.title}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Pricing Footer & Order CTA Button */}
-                  <div className="p-5 pt-0 space-y-3 border-t border-slate-50 mt-2">
-                    <div className="flex justify-between items-baseline pt-3">
-                      <div className="space-x-2 space-x-reverse">
-                        <span className="text-2xl font-black text-emerald-700">{p.price} {storeSettings?.currency || 'دج'}</span>
-                        {p.oldPrice > p.price && (
-                          <span className="text-xs text-slate-400 line-through font-bold">{p.oldPrice} {storeSettings?.currency || 'دج'}</span>
+                        {/* Features tags (Only 2 features) */}
+                        {p.features && p.features.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {p.features.slice(0, 2).map((feat, idx) => (
+                              <span key={idx} className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                ✓ {feat.title}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-1 rounded-md">
-                        الدفع عند الاستلام
-                      </span>
                     </div>
 
-                    <button
-                      onClick={() => onSelectProduct(productSlug)}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-                    >
-                      <ShoppingCart size={18} />
-                      <span>اشتري الآن (صفحة الهبوط)</span>
-                      <ChevronLeft size={16} />
-                    </button>
+                    {/* Order CTA Button at Bottom */}
+                    <div className="p-4 pt-0 space-y-2">
+                      <button
+                        onClick={() => onSelectProduct(productSlug)}
+                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm animate-bounce"
+                        style={{ animationDuration: '2.5s' }}
+                      >
+                        <ShoppingCart size={18} />
+                        <span>اشتري الآن ( صفحة الشراء)</span>
+                        <ChevronLeft size={16} className="animate-pulse" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               );
