@@ -5,7 +5,7 @@ import {
   Facebook, Instagram, Music, Home,
   ShoppingCart, ShoppingBag, Star, ShieldCheck, Truck, Sparkles, RefreshCw, 
   Wind, Layers, Package, Phone, User, MapPin, Send, Check, 
-  ArrowRight, ChevronLeft, ChevronRight, Clock, Flame
+  ArrowRight, ChevronLeft, ChevronRight, Clock, Flame, Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -31,9 +31,31 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
   const [selectedWilayaNum, setSelectedWilayaNum] = useState<number>(16); // Default Alger (16)
   const [commune, setCommune] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [shippingType, setShippingType] = useState<'home' | 'desk'>('home');
   const [notes, setNotes] = useState('');
   const [wilayasList, setWilayasList] = useState<Wilaya[]>(ALGERIAN_WILAYAS);
+
+  const handleColorSelect = (colorName: string) => {
+    setSelectedColor(colorName);
+    if (!product) return;
+
+    // Switch main gallery image if there's an image assigned to this color name
+    const matchingImgIdx = product.images.findIndex(img => img.colorName === colorName);
+    if (matchingImgIdx !== -1) {
+      setActiveImageIndex(matchingImgIdx);
+      return;
+    }
+
+    // Check if the color object has an imageUrl
+    const colObj = product.colors?.find(c => c.name === colorName);
+    if (colObj?.imageUrl) {
+      const imgIdxByUrl = product.images.findIndex(img => img.url === colObj.imageUrl);
+      if (imgIdxByUrl !== -1) {
+        setActiveImageIndex(imgIdxByUrl);
+      }
+    }
+  };
   
   // Form submission feedback
   const [submitting, setSubmitting] = useState(false);
@@ -54,7 +76,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
       ([entry]) => {
         setIsFormInView(entry.isIntersecting);
       },
-      { threshold: 0.1 }
+      { threshold: 0, rootMargin: '0px 0px -40px 0px' }
     );
     observer.observe(formRef.current);
     return () => observer.disconnect();
@@ -301,6 +323,9 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
         if (data.stockCount) {
           setStockCount(data.stockCount);
         }
+        if (data.colors && data.colors.length > 0) {
+          setSelectedColor(data.colors[0].name);
+        }
       } else if (slug) {
         // Fallback if specific slug not found
         const fallbackRes = await fetch('/api/product');
@@ -309,6 +334,9 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
           setProduct(data);
           if (data.stockCount) {
             setStockCount(data.stockCount);
+          }
+          if (data.colors && data.colors.length > 0) {
+            setSelectedColor(data.colors[0].name);
           }
         }
       }
@@ -326,6 +354,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
 
   const scrollToForm = () => {
     trackAddToCart();
+    setIsFormInView(true);
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -374,6 +403,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
           wilayaName: selectedWilaya.nameAr,
           commune,
           quantity,
+          selectedColor: selectedColor || (product?.colors?.[0]?.name || ''),
           notes,
           shippingPrice: shippingCost,
           totalPrice,
@@ -650,6 +680,46 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                 ))}
               </div>
             )}
+
+            {/* Colors Selector directly under Image Gallery */}
+            {product.colors && product.colors.length > 0 && (
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Palette size={16} className="text-emerald-600" />
+                    <span>اللون المختار (الألوان المتوفرة):</span>
+                  </span>
+                  <span className="text-xs font-black text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
+                    {selectedColor || product.colors[0].name}
+                  </span>
+                </div>
+                
+                <div className="flex flex-wrap gap-2.5 pt-1">
+                  {product.colors.map(col => {
+                    const isSelected = selectedColor === col.name || (!selectedColor && col === product.colors![0]);
+                    return (
+                      <button
+                        key={col.id || col.name}
+                        type="button"
+                        onClick={() => handleColorSelect(col.name)}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                          isSelected 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105 ring-2 ring-emerald-500/30' 
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span 
+                          className="w-4 h-4 rounded-full border border-black/20 shadow-inner inline-block shrink-0" 
+                          style={{ backgroundColor: col.hex || '#000' }} 
+                        />
+                        <span>{col.name}</span>
+                        {isSelected && <Check size={14} className="text-emerald-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Left side: Product Info & Dynamic Highlights */}
@@ -803,6 +873,45 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                   dir="ltr"
                 />
               </div>
+
+              {/* Product Color Selection inside Checkout Form */}
+              {product.colors && product.colors.length > 0 && (
+                <div className="space-y-2 bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200/80">
+                  <label className="block text-xs font-black text-emerald-900 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Palette size={16} className="text-emerald-600" />
+                      <span>اختر لون المنتج المفضّل: <strong className="text-red-500">*</strong></span>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                      {selectedColor || product.colors[0].name}
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {product.colors.map(col => {
+                      const isSelected = selectedColor === col.name || (!selectedColor && col === product.colors![0]);
+                      return (
+                        <button
+                          key={col.id || col.name}
+                          type="button"
+                          onClick={() => handleColorSelect(col.name)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-500/30'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <span 
+                            className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner inline-block shrink-0" 
+                            style={{ backgroundColor: col.hex || '#000' }} 
+                          />
+                          <span>{col.name}</span>
+                          {isSelected && <Check size={13} className="text-white" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Wilaya and Commune row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1131,6 +1240,15 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                   <span className="text-slate-500">الولاية والبلدية:</span>
                   <span className="font-bold text-slate-900">{successOrder.wilayaName} - {successOrder.commune}</span>
                 </div>
+                {successOrder.selectedColor && (
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                    <span className="text-slate-500">اللون المختار:</span>
+                    <span className="font-extrabold text-amber-900 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                      <span>🎨</span>
+                      <span>{successOrder.selectedColor}</span>
+                    </span>
+                  </div>
+                )}
 
                 {/* Price Breakdown Details */}
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">

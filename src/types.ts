@@ -14,10 +14,19 @@ export interface ProductFeature {
   icon: string; // lucide-react icon name
 }
 
+export interface ProductColor {
+  id: string;
+  name: string; // Color name in Arabic, e.g. "أسود", "بني", "أحمر"
+  hex?: string;  // Color hex code e.g. "#000000", "#7A3E22"
+  imageUrl?: string; // Image URL associated with this color
+}
+
 export interface ProductImage {
   id: string;
   url: string;
   isMain: boolean;
+  colorId?: string;
+  colorName?: string;
 }
 
 export interface ProductData {
@@ -39,6 +48,7 @@ export interface ProductData {
   initiateCheckoutCount?: number;
   purchaseCount?: number;
   images: ProductImage[];
+  colors?: ProductColor[];
   features: ProductFeature[];
   reviews: Review[];
 }
@@ -53,6 +63,7 @@ export interface Order {
   wilayaName: string;
   commune: string;
   quantity: number;
+  selectedColor?: string;
   notes?: string;
   totalPrice: number;
   shippingPrice: number;

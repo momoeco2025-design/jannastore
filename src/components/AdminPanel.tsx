@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ProductData, Order, OrderStatus, Review, ProductFeature, ProductImage, Wilaya, TelegramSettings, StoreSettings } from '../types';
+import { ProductData, Order, OrderStatus, Review, ProductFeature, ProductImage, ProductColor, Wilaya, TelegramSettings, StoreSettings } from '../types';
 import { ALGERIAN_WILAYAS } from './WilayaData';
 import { 
   Lock, LogOut, Settings, Plus, Minus, Star, Trash2, Edit2, Check,
   TrendingUp, Calendar, MapPin, Phone, User, Info, DollarSign,
   Search, Filter, Download, ShoppingCart, RefreshCw, Package, ArrowRight,
   Upload, Wand2, Truck, Send, Sparkles, ShoppingBag, Copy, RotateCcw,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -309,6 +309,48 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
   const [prodImages, setProdImages] = useState<ProductImage[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
+  // Colors state inside editor
+  const [prodColors, setProdColors] = useState<ProductColor[]>([]);
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#000000');
+  const [newColorImageUrl, setNewColorImageUrl] = useState('');
+
+  const PRESET_COLORS = [
+    { name: 'أسود', hex: '#000000' },
+    { name: 'بني', hex: '#6B3E26' },
+    { name: 'بني هافان', hex: '#B86B27' },
+    { name: 'أحمر', hex: '#C92A2A' },
+    { name: 'أزرق ملكي', hex: '#1864AB' },
+    { name: 'زيتي / كحلي', hex: '#2B8A3E' },
+    { name: 'أبيض / كريمي', hex: '#F8F9FA' },
+    { name: 'رمادي', hex: '#495057' },
+    { name: 'وردي', hex: '#E64980' },
+  ];
+
+  const handleAddColor = (name?: string, hex?: string, imageUrl?: string) => {
+    const cName = name || newColorName.trim();
+    if (!cName) return;
+    const cHex = hex || newColorHex;
+    const cImg = imageUrl !== undefined ? imageUrl : newColorImageUrl;
+
+    const newColor: ProductColor = {
+      id: "col-" + Date.now() + Math.floor(Math.random() * 1000),
+      name: cName,
+      hex: cHex,
+      imageUrl: cImg || undefined
+    };
+
+    setProdColors(prev => [...prev, newColor]);
+    if (!name) {
+      setNewColorName('');
+      setNewColorImageUrl('');
+    }
+  };
+
+  const handleDeleteColor = (colorId: string) => {
+    setProdColors(prev => prev.filter(c => c.id !== colorId));
+  };
+
   // Features state inside editor
   const [prodFeatures, setProdFeatures] = useState<ProductFeature[]>([]);
 
@@ -577,6 +619,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           setProdPromoText(data.promoText);
           setProdStockCount(data.stockCount);
           setProdImages(data.images || []);
+          setProdColors(data.colors || []);
           setProdFeatures(data.features || []);
           setProdReviews(data.reviews || []);
         }
@@ -617,6 +660,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdPromoText(p.promoText);
     setProdStockCount(p.stockCount);
     setProdImages(p.images || []);
+    setProdColors(p.colors || []);
     setProdFeatures(p.features || []);
     setProdReviews(p.reviews || []);
     setIsEditingProductMode(true);
@@ -636,6 +680,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdPromoText('');
     setProdStockCount(10);
     setProdImages([]);
+    setProdColors([]);
     setProdFeatures([
       { id: "f1", title: "ميزة 1", description: "شرح الميزة بالتفصيل", icon: "Sparkles" },
       { id: "f2", title: "ميزة 2", description: "شرح الميزة بالتفصيل", icon: "Layers" },
@@ -979,6 +1024,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
       logoUrl: prodLogoUrl,
       pixelId: prodPixelId.trim() || undefined,
       images: prodImages,
+      colors: prodColors,
       features: prodFeatures,
       reviews: prodReviews
     };
@@ -1383,10 +1429,23 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
 
                           {/* Quantity & Item details */}
                           <td className="px-4 py-4">
-                            <div className="flex items-center gap-1">
-                              <span className="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded-lg border border-slate-200">
-                                {order.quantity} علبة
-                              </span>
+                            <div className="flex flex-col gap-1">
+                              {order.productName && (
+                                <span className="font-bold text-slate-900 text-xs truncate max-w-[140px]" title={order.productName}>
+                                  {order.productName}
+                                </span>
+                              )}
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded-lg border border-slate-200 text-[11px]">
+                                  {order.quantity} قطعة
+                                </span>
+                                {order.selectedColor && (
+                                  <span className="bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-lg border border-amber-200 text-[11px] flex items-center gap-1">
+                                    <span>🎨</span>
+                                    <span>{order.selectedColor}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
 
@@ -2268,9 +2327,161 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                             <Trash2 size={12} />
                           </button>
                         </div>
+                        {prodColors.length > 0 && (
+                          <div className="mt-1.5">
+                            <select
+                              value={img.colorName || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setProdImages(prev => prev.map(i => i.id === img.id ? { ...i, colorName: val || undefined } : i));
+                              }}
+                              className="w-full text-[10px] font-bold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            >
+                              <option value="">كل الألوان</option>
+                              {prodColors.map(c => (
+                                <option key={c.id} value={c.name}>🎨 لون: {c.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Colors Manager */}
+                <div className="space-y-4 pt-6 border-t border-slate-200">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-900 font-black flex items-center gap-2">
+                        <span>🎨 إدارة ألوان المنتج والمتغيرات</span>
+                        {prodColors.length > 0 && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                            {prodColors.length} ألوان مفعلة
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                        حدد الألوان المتوفرة لهذا المنتج (مثل الحقائب والمحافض والأجهزة) لتظهر للزبون عند خيارات الشراء.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Colors 1-click add */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="space-y-1">
+                      <span className="font-bold text-xs text-slate-800 font-black">إضافة سريعة بنقرة واحدة (ألوان الجزائر الشائعة) ⚡</span>
+                      <p className="text-[10px] text-slate-500">انقر على الألوان التي تود تفعيلها لهذا المنتج مباشرة:</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {PRESET_COLORS.map(pc => {
+                        const isAdded = prodColors.some(c => c.name === pc.name);
+                        return (
+                          <button
+                            key={pc.name}
+                            type="button"
+                            onClick={() => {
+                              if (isAdded) {
+                                setProdColors(prev => prev.filter(c => c.name !== pc.name));
+                              } else {
+                                handleAddColor(pc.name, pc.hex);
+                              }
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                              isAdded 
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <span className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner inline-block" style={{ backgroundColor: pc.hex }} />
+                            <span>{pc.name}</span>
+                            {isAdded ? <Check size={12} className="text-white" /> : <Plus size={12} className="text-slate-400" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Color Form */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <span className="font-bold text-xs text-slate-800 font-black block">إضافة لون مخصص بحسب الطلب ✏️</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      <div className="sm:col-span-4 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">اسم اللون بالعربية:</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: أسود ملكي / بني هافان"
+                          value={newColorName}
+                          onChange={(e) => setNewColorName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">رمز اللون (Color Code):</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={newColorHex}
+                            onChange={(e) => setNewColorHex(e.target.value)}
+                            className="w-9 h-9 p-0.5 rounded-xl border border-slate-200 bg-white cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={newColorHex}
+                            onChange={(e) => setNewColorHex(e.target.value)}
+                            className="w-full px-2 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">صورة اللون (اختياري):</label>
+                        <input
+                          type="url"
+                          placeholder="رابط صورة هذا اللون..."
+                          value={newColorImageUrl}
+                          onChange={(e) => setNewColorImageUrl(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAddColor()}
+                          className="w-full bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                        >
+                          إضافة ➕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Colors List for this product */}
+                  {prodColors.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-slate-700 block">الألوان المفعلة حالياً لمنتج صفحة الهبوط:</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {prodColors.map((col) => (
+                          <div key={col.id} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full border border-black/20 shadow-sm shrink-0" style={{ backgroundColor: col.hex || '#000' }} />
+                              <div>
+                                <span className="font-extrabold text-xs text-slate-900 block">{col.name}</span>
+                                {col.imageUrl && <span className="text-[9px] text-emerald-600 font-bold">🖼️ توجد صورة مربطة</span>}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteColor(col.id)}
+                              className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer"
+                              title="حذف هذا اللون"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reviews Manager */}

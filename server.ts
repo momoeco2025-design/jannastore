@@ -285,7 +285,10 @@ async function sendTelegramNotification(order: Order, productName: string, produ
   const escWilayaName = escapeHTML(order.wilayaName);
   const escCommune = escapeHTML(order.commune);
   const escProductName = escapeHTML(productName);
+  const escColor = order.selectedColor ? escapeHTML(order.selectedColor) : "";
   const escNotes = escapeHTML(order.notes || "لا توجد ملاحظة");
+
+  const colorLine = escColor ? `• <b>اللون المختار:</b> 🎨 ${escColor}\n` : '';
 
   const message = `
 📦 <b>طلب جديد في جنة ستور!</b> 📦
@@ -297,7 +300,7 @@ async function sendTelegramNotification(order: Order, productName: string, produ
 
 🛒 <b>تفاصيل المنتج:</b>
 • <b>المنتج:</b> ${escProductName}
-• <b>سعر الحبة:</b> ${productPrice} دج
+${colorLine}• <b>سعر الحبة:</b> ${productPrice} دج
 • <b>الكمية:</b> ${order.quantity} حبة
 
 💵 <b>الحساب النهائي:</b>
@@ -668,7 +671,7 @@ app.delete("/api/products/:id", adminAuth, async (req: Request, res: Response) =
 
 // 3. Create a New Order
 app.post("/api/orders", async (req: Request, res: Response) => {
-  const { customerName, phone, wilayaNum, wilayaName, commune, quantity, notes, totalPrice, shippingPrice, productSlug } = req.body;
+  const { customerName, phone, wilayaNum, wilayaName, commune, quantity, selectedColor, notes, totalPrice, shippingPrice, productSlug } = req.body;
   
   if (!customerName || !phone || !wilayaName || !commune || !quantity) {
     return res.status(400).json({ error: "جميع الحقول الأساسية مطلوبة لإتمام الطلب." });
@@ -686,6 +689,7 @@ app.post("/api/orders", async (req: Request, res: Response) => {
     wilayaName,
     commune,
     quantity: Number(quantity),
+    selectedColor: selectedColor || "",
     notes: notes || "",
     totalPrice: Number(totalPrice),
     shippingPrice: Number(shippingPrice),
