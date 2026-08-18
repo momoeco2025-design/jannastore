@@ -39,6 +39,9 @@ export interface ProductData {
   oldPrice: number;
   promoText: string;
   stockCount: number;
+  useFixedShipping?: boolean; // هل التوصيل بسعر ثابت موحد لجميع الولايات (مثل خيار الباك)
+  fixedShippingHome?: number; // سعر التوصيل الثابت للمنزل
+  fixedShippingDesk?: number; // سعر التوصيل الثابت للمكتب
   videoUrl?: string;
   coverUrl?: string;
   logoUrl?: string;

@@ -304,6 +304,9 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
   const [prodOldPrice, setProdOldPrice] = useState(0);
   const [prodPromoText, setProdPromoText] = useState('');
   const [prodStockCount, setProdStockCount] = useState(0);
+  const [prodUseFixedShipping, setProdUseFixedShipping] = useState<boolean>(false);
+  const [prodFixedShippingHome, setProdFixedShippingHome] = useState<number>(500);
+  const [prodFixedShippingDesk, setProdFixedShippingDesk] = useState<number>(400);
 
   // Images state inside editor
   const [prodImages, setProdImages] = useState<ProductImage[]>([]);
@@ -618,6 +621,9 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           setProdOldPrice(data.oldPrice);
           setProdPromoText(data.promoText);
           setProdStockCount(data.stockCount);
+          setProdUseFixedShipping(data.useFixedShipping || false);
+          setProdFixedShippingHome(data.fixedShippingHome ?? 500);
+          setProdFixedShippingDesk(data.fixedShippingDesk ?? 400);
           setProdImages(data.images || []);
           setProdColors(data.colors || []);
           setProdFeatures(data.features || []);
@@ -659,6 +665,9 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdOldPrice(p.oldPrice);
     setProdPromoText(p.promoText);
     setProdStockCount(p.stockCount);
+    setProdUseFixedShipping(p.useFixedShipping || false);
+    setProdFixedShippingHome(p.fixedShippingHome ?? 500);
+    setProdFixedShippingDesk(p.fixedShippingDesk ?? 400);
     setProdImages(p.images || []);
     setProdColors(p.colors || []);
     setProdFeatures(p.features || []);
@@ -679,6 +688,9 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     setProdOldPrice(0);
     setProdPromoText('');
     setProdStockCount(10);
+    setProdUseFixedShipping(false);
+    setProdFixedShippingHome(500);
+    setProdFixedShippingDesk(400);
     setProdImages([]);
     setProdColors([]);
     setProdFeatures([
@@ -1020,6 +1032,9 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
       oldPrice: Number(prodOldPrice),
       promoText: prodPromoText,
       stockCount: Number(prodStockCount),
+      useFixedShipping: prodUseFixedShipping,
+      fixedShippingHome: Number(prodFixedShippingHome),
+      fixedShippingDesk: Number(prodFixedShippingDesk),
       coverUrl: prodCoverUrl,
       logoUrl: prodLogoUrl,
       pixelId: prodPixelId.trim() || undefined,
@@ -2189,6 +2204,99 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
                     />
                   </div>
+                </div>
+
+                {/* Delivery Pricing Strategy (إستراتيجية سعر التوصيل للمنتج / الباك) */}
+                <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200/80 pb-3">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                        <Truck size={18} className="text-emerald-600" />
+                        <span>خيارات سعر التوصيل لهذا المنتج / الباك 🚚</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                        اختر ما إذا كنت تريد تطبیق أسعار التوصيل المتغيرة حسب كل ولاية، أو تحديد سعر موحد وثابت لجميع الولايات (حيلة تسويقية ممتازة للباك والعروض الخاصة).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option 1: Variable per Wilaya */}
+                    <button
+                      type="button"
+                      onClick={() => setProdUseFixedShipping(false)}
+                      className={`p-4 rounded-xl border text-right transition-all flex items-start gap-3 cursor-pointer ${
+                        !prodUseFixedShipping
+                          ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/20 text-slate-900 shadow-xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-100/80 text-slate-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                        !prodUseFixedShipping ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {!prodUseFixedShipping && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="font-black text-xs block text-slate-900">1. أسعار متغيرة حسب جدول الولايات 🗺️</span>
+                        <span className="text-[11px] text-slate-500 font-semibold block mt-1 leading-relaxed">
+                          يتم احتساب سعر التوصيل تلقائياً بناءً على قائمة أسعار الولايات الـ 58 المحددة في النظام.
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Option 2: Fixed uniform rate */}
+                    <button
+                      type="button"
+                      onClick={() => setProdUseFixedShipping(true)}
+                      className={`p-4 rounded-xl border text-right transition-all flex items-start gap-3 cursor-pointer ${
+                        prodUseFixedShipping
+                          ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/20 text-slate-900 shadow-xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-100/80 text-slate-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                        prodUseFixedShipping ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {prodUseFixedShipping && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="font-black text-xs block text-slate-900">2. سعر توصيل ثابت موحد لكل الولايات (للباك) 🏷️</span>
+                        <span className="text-[11px] text-slate-500 font-semibold block mt-1 leading-relaxed">
+                          تحديد سعر توصيل ثابت يطبق على كل الزبائن من جميع الولايات والبلديات بدون استثناء.
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Inputs for fixed rates */}
+                  {prodUseFixedShipping && (
+                    <div className="bg-emerald-100/70 p-4 rounded-xl border border-emerald-300/80 space-y-3">
+                      <span className="font-extrabold text-xs text-emerald-950 block">تحديد أسعار التوصيل الثابتة لكل الولايات (دج):</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-800 block">سعر التوصيل الثابت للمنزل (دج)</label>
+                          <input
+                            type="number"
+                            value={prodFixedShippingHome}
+                            onChange={(e) => setProdFixedShippingHome(Number(e.target.value))}
+                            placeholder="مثلاً: 500"
+                            className="w-full px-4 py-2.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-950"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-800 block">سعر التوصيل الثابت للمكتب (دج)</label>
+                          <input
+                            type="number"
+                            value={prodFixedShippingDesk}
+                            onChange={(e) => setProdFixedShippingDesk(Number(e.target.value))}
+                            placeholder="مثلاً: 350"
+                            className="w-full px-4 py-2.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-600 text-emerald-950"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Features Management */}

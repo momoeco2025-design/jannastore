@@ -348,7 +348,9 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
   };
 
   const selectedWilaya = wilayasList.find(w => w.num === selectedWilayaNum) || wilayasList[15] || ALGERIAN_WILAYAS[15]; // Default Alger
-  const shippingCost = shippingType === 'home' ? selectedWilaya.shippingHome : selectedWilaya.shippingDesk;
+  const homeShippingRate = product?.useFixedShipping ? (product.fixedShippingHome ?? 500) : selectedWilaya.shippingHome;
+  const deskShippingRate = product?.useFixedShipping ? (product.fixedShippingDesk ?? product.fixedShippingHome ?? 400) : selectedWilaya.shippingDesk;
+  const shippingCost = shippingType === 'home' ? homeShippingRate : deskShippingRate;
   const productPrice = product ? product.price : 0;
   const totalPrice = (productPrice * quantity) + shippingCost;
 
@@ -809,7 +811,7 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                     }`}
                   >
                     <span>توصيل للمنزل 🏠</span>
-                    <span className="text-[10px] text-slate-500 font-normal">لباب بيتك (+{selectedWilaya.shippingHome} دج)</span>
+                    <span className="text-[10px] text-slate-500 font-normal">لباب بيتك (+{homeShippingRate} دج)</span>
                   </button>
 
                   <button
@@ -822,9 +824,15 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
                     }`}
                   >
                     <span>استلام من المكتب 🏢</span>
-                    <span className="text-[10px] text-slate-500 font-normal">توفير وتكلفة أقل (+{selectedWilaya.shippingDesk} دج)</span>
+                    <span className="text-[10px] text-slate-500 font-normal">توفير وتكلفة أقل (+{deskShippingRate} دج)</span>
                   </button>
                 </div>
+                {product?.useFixedShipping && (
+                  <div className="bg-amber-50 text-amber-900 border border-amber-200/80 p-2 rounded-xl text-[11px] font-bold text-center mt-1.5 flex items-center justify-center gap-1.5 shadow-xs">
+                    <Sparkles size={14} className="text-amber-600 animate-pulse" />
+                    <span>عرض خاص: سعر التوصيل موحد وثابت لجميع ولايات الوطن!</span>
+                  </div>
+                )}
               </div>
 
               {/* Quantity and notes */}
@@ -901,7 +909,11 @@ export default function LandingPage({ onOpenAdmin, isAdminLoggedIn, onGoHome }: 
 
                 <div className="flex justify-between items-center text-xs text-slate-300 border-b border-slate-800 pb-2">
                   <span>
-                    تكلفة الشحن لولاية <strong className="text-amber-300">({selectedWilaya.nameAr})</strong>:
+                    {product?.useFixedShipping ? (
+                      <>تكلفة الشحن الثابتة <strong className="text-amber-300">(لكل الولايات)</strong>:</>
+                    ) : (
+                      <>تكلفة الشحن لولاية <strong className="text-amber-300">({selectedWilaya.nameAr})</strong>:</>
+                    )}
                   </span>
                   <span className="font-bold text-white">
                     {shippingCost === 0 ? 'مجاني' : `${shippingCost} دج`}
