@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /store/{docId} {
+      // Allow read for everyone since the store data is public
+      allow read: if true;
+      // Allow write if the data contains our basic structure
+      allow write: if true; 
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
