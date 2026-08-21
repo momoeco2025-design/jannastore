@@ -1,6 +1,0 @@
-{
-  "name": "Janna Store",
-  "description": "صفحة هبوط احترافية عالية التحويل مع لوحة تحكم لتعديل المحتوى وإدارة الطلبات لمتجر جزائري بالدفع عند الاستلام",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
