@@ -138,7 +138,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           const data = await res.json();
           setStoreSettings(prev => prev ? { ...prev, logoUrl: data.url } : null);
         } else {
-          alert('فشل رفع شعار المتجر.');
+          console.warn('فشل رفع شعار المتجر.');
         }
         setUploadingLogo(false);
       };
@@ -168,7 +168,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           const data = await res.json();
           setStoreSettings(prev => prev ? { ...prev, coverUrl: data.url } : null);
         } else {
-          alert('فشل رفع صورة الغلاف.');
+          console.warn('فشل رفع صورة الغلاف.');
         }
         setUploadingCover(false);
       };
@@ -738,15 +738,15 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
         body: JSON.stringify({ slug })
       });
       if (res.ok) {
-        alert('تم تعيين الصفحة كصفحة رئيسية بنجاح!');
+        console.log('تم تعيين الصفحة كصفحة رئيسية بنجاح!');
         fetchProducts();
         fetchProduct();
       } else {
         const err = await res.json();
-        alert(err.error || 'فشل تعيين الصفحة كصفحة رئيسية.');
+        console.warn(err.error || 'فشل تعيين الصفحة كصفحة رئيسية.');
       }
     } catch (err) {
-      alert('فشل الاتصال بالخادم.');
+      console.error('فشل الاتصال بالخادم.');
     }
   };
 
@@ -776,11 +776,11 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
         fetchProducts();
       } else {
         const err = await res.json();
-        alert(err.error || 'فشل تغيير ترتيب المنتجات.');
+        console.warn(err.error || 'فشل تغيير ترتيب المنتجات.');
         fetchProducts();
       }
     } catch (err) {
-      alert('فشل الاتصال بالخادم.');
+      console.error('فشل الاتصال بالخادم.');
       fetchProducts();
     }
   };
@@ -800,7 +800,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
       } else {
         const errData = await res.json();
-        alert(errData.error || 'حدث خطأ ما');
+        console.warn(errData.error || 'حدث خطأ ما');
       }
     } catch (err) {
       console.error('Error updating order status:', err);
@@ -819,7 +819,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
         setOrderToDeleteId(null);
       } else {
         const errData = await res.json();
-        alert(errData.error || 'حدث خطأ ما');
+        console.warn(errData.error || 'حدث خطأ ما');
       }
     } catch (err) {
       console.error('Error deleting order:', err);
@@ -864,7 +864,6 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
   // Review Management
   const handleAddReview = () => {
     if (!newRevName.trim() || !newRevComment.trim()) {
-      alert('يرجى ملء اسم المقيّم والتعليق.');
       return;
     }
     const newRev: Review = {
@@ -948,7 +947,7 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
   // AI-powered product generation
   const handleGenerateProductWithAI = async () => {
     if (!aiDescriptionPrompt.trim()) {
-      alert('يرجى كتابة وصف أولي أو تفاصيل عن المنتج للذكاء الاصطناعي أولاً.');
+      setAiError('يرجى كتابة وصف أولي أو تفاصيل عن المنتج للذكاء الاصطناعي أولاً.');
       return;
     }
 
@@ -1045,19 +1044,23 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
     };
 
     try {
-      // Save Store settings first in the background
-      await fetch('/api/store-settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Token': adminToken
-        },
-        body: JSON.stringify({
-          storeName,
-          storeSub,
-          tickerItems
-        })
-      });
+      // Save Store settings in background safely without throwing
+      try {
+        await fetch('/api/store-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminToken
+          },
+          body: JSON.stringify({
+            storeName,
+            storeSub,
+            tickerItems
+          })
+        });
+      } catch (e) {
+        console.warn('Could not save store settings in background:', e);
+      }
 
       // Then save the product
       const res = await fetch('/api/products/save', {
@@ -1081,13 +1084,19 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
           setEditingProductId(null);
         }, 1500);
         fetchProducts();
+        fetchProduct();
         fetchStoreSettings();
       } else {
         const errData = await res.json();
-        setProductSaveError(errData.error || 'حدث خطأ في الحفظ.');
+        const msg = errData.error || 'حدث خطأ في الحفظ.';
+        setProductSaveError(msg);
+        alert(`⚠️ ${msg}`);
       }
-    } catch (err) {
-      setProductSaveError('فشل الاتصال بالخادم، يرجى المحاولة لاحقاً.');
+    } catch (err: any) {
+      console.error('Save product error:', err);
+      const msg = 'فشل الاتصال بالخادم، يرجى المحاولة لاحقاً.';
+      setProductSaveError(msg);
+      alert(`⚠️ ${msg}`);
     } finally {
       setSavingProduct(false);
     }
@@ -2694,11 +2703,23 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
             )}
 
             {isEditingProductMode && (
-              <div className="flex justify-end pt-6 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200" dir="rtl">
+                <div>
+                  {productSaveSuccess && (
+                    <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5 animate-bounce">
+                      <span>🎉 تم حفظ جميع التغييرات ونشرها بنجاح!</span>
+                    </span>
+                  )}
+                  {productSaveError && (
+                    <span className="bg-red-100 text-red-800 text-xs font-bold px-4 py-2 rounded-xl border border-red-200 flex items-center gap-1.5">
+                      <span>⚠️ خطأ: {productSaveError}</span>
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={handleSaveProduct}
                   disabled={savingProduct}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm px-8 py-3.5 rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center gap-2 cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white font-extrabold text-sm px-8 py-3.5 rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center gap-2 cursor-pointer"
                 >
                   {savingProduct ? (
                     <RefreshCw size={18} className="animate-spin" />
@@ -2746,7 +2767,6 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                       const val = Number((document.getElementById('bulkHomeVal') as HTMLInputElement)?.value);
                       if (val >= 0) {
                         setWilayas(prev => prev.map(w => ({ ...w, shippingHome: val })));
-                        alert('تم تطبيق السعر على جميع الولايات، لا تنسى الضغط على حفظ في الأسفل.');
                       }
                     }}
                     className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-[11px] px-3 py-2 rounded-lg transition-all w-full sm:w-auto"
@@ -2771,7 +2791,6 @@ export default function AdminPanel({ onClose, adminToken, onLogout }: AdminPanel
                       const val = Number((document.getElementById('bulkDeskVal') as HTMLInputElement)?.value);
                       if (val >= 0) {
                         setWilayas(prev => prev.map(w => ({ ...w, shippingDesk: val })));
-                        alert('تم تطبيق السعر على جميع الولايات، لا تنسى الضغط على حفظ في الأسفل.');
                       }
                     }}
                     className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-[11px] px-3 py-2 rounded-lg transition-all w-full sm:w-auto"

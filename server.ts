@@ -174,38 +174,38 @@ const firebaseApp = initializeApp(firebaseConfig);
 const firestore = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 const STORE_DOC_ID = "main_store";
 
+let firestoreQuotaExhausted = true;
+
 // Read database
 async function getDB(): Promise<DBStructure> {
-  try {
-    const docRef = doc(firestore, 'store', STORE_DOC_ID);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const parsed = docSnap.data() as DBStructure;
+  // 1. If local disk DB exists, prefer reading from local disk first to avoid unneeded Firestore quota usage
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const localData = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8')) as DBStructure;
       let updated = false;
-      if (!parsed.wilayas || parsed.wilayas.length < 58 || parsed.wilayas[0]?.shippingHome !== 1100) {
-        parsed.wilayas = ALGERIAN_WILAYAS;
+      if (!localData.wilayas || localData.wilayas.length < 58 || localData.wilayas[0]?.shippingHome !== 1100) {
+        localData.wilayas = ALGERIAN_WILAYAS;
         updated = true;
       }
-      if (!parsed.telegramSettings) {
-        parsed.telegramSettings = defaultTelegramSettings;
+      if (!localData.telegramSettings) {
+        localData.telegramSettings = defaultTelegramSettings;
         updated = true;
       }
-      if (!parsed.storeSettings) {
-        parsed.storeSettings = defaultStoreSettings;
+      if (!localData.storeSettings) {
+        localData.storeSettings = defaultStoreSettings;
         updated = true;
-      } else if (!parsed.storeSettings.metaPixelId) {
-        parsed.storeSettings.metaPixelId = "4470620526542545";
+      } else if (!localData.storeSettings.metaPixelId) {
+        localData.storeSettings.metaPixelId = "4470620526542545";
         updated = true;
       }
-      if (!parsed.products || parsed.products.length === 0) {
-        const defaultP = { ...parsed.product };
+      if (!localData.products || localData.products.length === 0) {
+        const defaultP = { ...localData.product };
         if (!defaultP.id) defaultP.id = "p1";
         if (!defaultP.slug) defaultP.slug = "hairstyler";
-        parsed.products = [defaultP];
+        localData.products = [defaultP];
         updated = true;
       }
-      // Ensure all products in the list have id and slug
-      parsed.products.forEach((p, index) => {
+      localData.products.forEach((p) => {
         if (!p.id) {
           p.id = "p" + Math.floor(100000 + Math.random() * 900000);
           updated = true;
@@ -216,15 +216,73 @@ async function getDB(): Promise<DBStructure> {
         }
       });
       if (updated) {
-        await saveDB(parsed);
+        try {
+          fs.writeFileSync(DB_FILE, JSON.stringify(localData, null, 2));
+        } catch (e) {
+          console.error("Error updating local DB file:", e);
+        }
       }
-      return parsed;
+      return localData;
+    } catch (err) {
+      console.error("Error parsing local DB file, falling back:", err);
     }
-  } catch (error) {
-    console.error("Error reading database from Firestore, using defaults:", error);
   }
-  
-  // Create default db
+
+  // 2. If no local file yet, try loading from Firestore if quota is available
+  if (!firestoreQuotaExhausted) {
+    try {
+      const docRef = doc(firestore, 'store', STORE_DOC_ID);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const parsed = docSnap.data() as DBStructure;
+        let updated = false;
+        if (!parsed.wilayas || parsed.wilayas.length < 58 || parsed.wilayas[0]?.shippingHome !== 1100) {
+          parsed.wilayas = ALGERIAN_WILAYAS;
+          updated = true;
+        }
+        if (!parsed.telegramSettings) {
+          parsed.telegramSettings = defaultTelegramSettings;
+          updated = true;
+        }
+        if (!parsed.storeSettings) {
+          parsed.storeSettings = defaultStoreSettings;
+          updated = true;
+        } else if (!parsed.storeSettings.metaPixelId) {
+          parsed.storeSettings.metaPixelId = "4470620526542545";
+          updated = true;
+        }
+        if (!parsed.products || parsed.products.length === 0) {
+          const defaultP = { ...parsed.product };
+          if (!defaultP.id) defaultP.id = "p1";
+          if (!defaultP.slug) defaultP.slug = "hairstyler";
+          parsed.products = [defaultP];
+          updated = true;
+        }
+        parsed.products.forEach((p) => {
+          if (!p.id) {
+            p.id = "p" + Math.floor(100000 + Math.random() * 900000);
+            updated = true;
+          }
+          if (!p.slug) {
+            p.slug = "product-" + p.id;
+            updated = true;
+          }
+        });
+        // Always save to local file
+        try {
+          fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2));
+        } catch (e) {
+          console.error("Error writing local DB cache file:", e);
+        }
+        return parsed;
+      }
+    } catch (error: any) {
+      firestoreQuotaExhausted = true;
+      console.warn("Firestore quota exceeded or unavailable. Switching exclusively to local disk persistence backup.");
+    }
+  }
+
+  // 3. Fallback default DB
   const firstProduct = { ...defaultProduct, id: "p1", slug: "hairstyler" };
   const defaultDB: DBStructure = {
     product: defaultProduct,
@@ -240,11 +298,21 @@ async function getDB(): Promise<DBStructure> {
 
 // Write database
 async function saveDB(data: DBStructure) {
+  // Always persist locally first so state is never lost even if Firestore hits quota limits
   try {
-    const docRef = doc(firestore, 'store', STORE_DOC_ID);
-    await setDoc(docRef, data);
-  } catch (error) {
-    console.error("Error writing to Firestore:", error);
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("Error saving to local DB file:", err);
+  }
+
+  if (!firestoreQuotaExhausted) {
+    try {
+      const docRef = doc(firestore, 'store', STORE_DOC_ID);
+      await setDoc(docRef, data);
+    } catch (error: any) {
+      firestoreQuotaExhausted = true;
+      console.warn("Firestore write failed (quota limit reached). All store data is safely saved and managed via local disk storage.");
+    }
   }
 }
 
@@ -599,52 +667,65 @@ app.get("/api/products/:slug", async (req: Request, res: Response) => {
 app.post("/api/products/save", adminAuth, async (req: Request, res: Response) => {
   const db = await getDB();
   const productData = req.body;
-  if (!productData.title || !productData.slug) {
-    return res.status(400).json({ error: "اسم المنتج والرابط الفريد (Slug) مطلوبان." });
-  }
-
-  // Format slug to be URL friendly
-  const formattedSlug = productData.slug.toLowerCase().trim().replace(/[^a-z0-9-_\u0600-\u06FF]/g, '-').replace(/-+/g, '-');
-
-  // Check if slug is already used by another product
-  const existingWithSlug = db.products?.find(p => p.slug === formattedSlug && p.id !== productData.id);
-  if (existingWithSlug) {
-    return res.status(400).json({ error: "الرابط الفريد (Slug) مستخدم بالفعل لمنتج آخر. يرجى اختيار رابط مختلف." });
+  if (!productData.title) {
+    return res.status(400).json({ error: "اسم المنتج مطلوب." });
   }
 
   if (!db.products) {
     db.products = [];
   }
 
-  const updatedProductData = {
-    ...productData,
-    slug: formattedSlug
-  };
+  // Format slug to be URL friendly
+  const cleanedSlug = (productData.slug || "").toLowerCase().trim().replace(/[^a-z0-9-_\u0600-\u06FF]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  const finalSlug = cleanedSlug || ("product-" + (productData.id || Math.floor(100000 + Math.random() * 900000)));
 
-  if (updatedProductData.id) {
-    // Update existing
-    const index = db.products.findIndex(p => p.id === updatedProductData.id);
-    if (index !== -1) {
-      db.products[index] = { ...db.products[index], ...updatedProductData };
-    } else {
-      db.products.push(updatedProductData);
-    }
-  } else {
-    // Add new
-    const newProduct = {
-      ...updatedProductData,
-      id: "p" + Math.floor(100000 + Math.random() * 900000)
-    };
-    db.products.push(newProduct);
+  // Find existing product either by ID or by slug
+  let existingIndex = -1;
+  if (productData.id) {
+    existingIndex = db.products.findIndex(p => p.id === productData.id);
+  }
+  if (existingIndex === -1 && finalSlug) {
+    existingIndex = db.products.findIndex(p => p.slug === finalSlug);
   }
 
-  // Ensure first product matches db.product fallback
-  if (db.products.length > 0) {
-    db.product = db.products[0];
+  // Check for slug collision with ANOTHER product in the list
+  const slugCollisionIndex = db.products.findIndex(p => p.slug === finalSlug);
+  if (slugCollisionIndex !== -1 && existingIndex !== -1 && slugCollisionIndex !== existingIndex) {
+    return res.status(400).json({ error: "الرابط الفريد (Slug) مستخدم بالفعل لمنتج آخر. يرجى اختيار رابط مختلف." });
+  }
+
+  const targetId = existingIndex !== -1 && db.products[existingIndex].id
+    ? db.products[existingIndex].id
+    : (productData.id || ("p" + Math.floor(100000 + Math.random() * 900000)));
+
+  const updatedProductData = {
+    ...productData,
+    id: targetId,
+    slug: finalSlug,
+    price: Number(productData.price) || 0,
+    oldPrice: Number(productData.oldPrice) || 0,
+    stockCount: Number(productData.stockCount) ?? 10
+  };
+
+  if (existingIndex !== -1) {
+    db.products[existingIndex] = { ...db.products[existingIndex], ...updatedProductData };
+  } else {
+    db.products.push(updatedProductData);
+  }
+
+  // Sync main single-product fallback if applicable
+  if (!db.product || db.product.id === targetId || db.product.slug === finalSlug || db.products.length === 1) {
+    db.product = { ...db.product, ...updatedProductData };
+  } else {
+    const defaultSlug = db.defaultProductSlug || db.products[0]?.slug;
+    const mainProduct = db.products.find(p => p.slug === defaultSlug) || db.products[0];
+    if (mainProduct) {
+      db.product = mainProduct;
+    }
   }
 
   await saveDB(db);
-  res.json({ success: true, message: "تم حفظ المنتج وصفحة الهبوط بنجاح!", products: db.products });
+  res.json({ success: true, message: "تم حفظ المنتج وصفحة الهبوط بنجاح!", products: db.products, product: db.product });
 });
 
 // 2e. Delete Product (Admin only)

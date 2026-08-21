@@ -219,11 +219,11 @@ export default function StoreHome({ onSelectProduct, onOpenAdmin, isAdminLoggedI
         fetchProducts();
       } else {
         const err = await res.json();
-        alert(err.error || 'فشل تغيير ترتيب المنتجات.');
+        console.error(err.error || 'فشل تغيير ترتيب المنتجات.');
         fetchProducts();
       }
     } catch (err) {
-      alert('فشل الاتصال بالخادم.');
+      console.error('فشل الاتصال بالخادم.');
       fetchProducts();
     }
   };
